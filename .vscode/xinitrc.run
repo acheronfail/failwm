@@ -1,0 +1,8 @@
+set -x
+
+xeyes &
+bash -c 'sleep 2; echo starting xterm; xterm' &
+
+echo "Starting r3 (debug)..."
+sleep 1
+exec ./target/debug/r3

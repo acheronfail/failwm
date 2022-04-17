@@ -1,0 +1,5 @@
+set -x
+
+echo "Starting r3 (debug)..."
+bash -c 'sleep 5; xterm' &
+RUST_BACKTRACE=1 R3_DEBUG=1 exec ./target/debug/r3

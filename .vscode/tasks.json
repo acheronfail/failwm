@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "xephyr.debug",
+      "command": "just",
+      "args": [
+        "debug"
+      ],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "close": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "xephyr.run",
+      "command": "just",
+      "args": [
+        "run"
+      ],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "close": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "clean-up",
+      "command": "${workspaceFolder}/.vscode/clean-up.sh",
+      "args": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
