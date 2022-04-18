@@ -34,6 +34,7 @@
 - [ ] CLI
   - [ ] clap
 - [ ] README
+  - [ ] a little flashy
   - [ ] contributing
   - [ ] guide to compilation, dev loop, etc
   - [ ] licenses
