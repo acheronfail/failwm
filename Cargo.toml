@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 nix = "0.23.1"
 xcb = { version = "1.1.1", features = ["composite", "xkb"] }
+
+[features]
+default = []
+debug = ["xcb/debug_atom_names"]
