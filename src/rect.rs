@@ -1,7 +1,7 @@
 use crate::point::Point;
 
 #[derive(Debug, Clone, Copy)]
-pub enum Corner {
+pub enum Quadrant {
     TopLeft,
     TopRight,
     BottomLeft,
@@ -26,19 +26,19 @@ impl Rect {
             && (self.y <= point.y && point.y <= self.y + self.height as i16)
     }
 
-    pub fn corner(&self, point: &Point) -> Option<Corner> {
+    pub fn quadrant(&self, point: &Point) -> Option<Quadrant> {
         let w = (self.width / 2) as i16;
         let h = (self.height / 2) as i16;
         if !self.contains(point) {
             None
         } else if point.x > w && point.y > h {
-            Some(Corner::BottomRight)
+            Some(Quadrant::BottomRight)
         } else if point.x > w && point.y <= h {
-            Some(Corner::TopRight)
+            Some(Quadrant::TopRight)
         } else if point.x <= w && point.y > h {
-            Some(Corner::BottomLeft)
+            Some(Quadrant::BottomLeft)
         } else {
-            Some(Corner::TopLeft)
+            Some(Quadrant::TopLeft)
         }
     }
 }

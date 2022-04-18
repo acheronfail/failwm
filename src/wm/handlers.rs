@@ -26,7 +26,6 @@ impl WindowManager {
         ];
 
         // If we've already framed this window, also update the frame
-        // TODO: do we need to ignore border width here?
         if let Some(frame_id) = self.framed_clients.get(&window_id) {
             self.conn.send_and_check_request(&x::ConfigureWindow {
                 window: *frame_id,
@@ -68,10 +67,10 @@ impl WindowManager {
      * Key Events
      */
 
+    // TODO: remove hardcoded values when configuration is available
     pub(super) fn on_key_press(&mut self, ev: KeyPressEvent) -> xcb::Result<()> {
         let window_id = ev.event();
         // CTRL + Q (on qwerty) - kill window
-        // TODO: support keymaps
         if ev.state().contains(x::KeyButMask::CONTROL) && ev.detail() == 0x18 {
             self.kill_window(window_id)?;
         }
@@ -109,6 +108,7 @@ impl WindowManager {
         Ok(())
     }
 
+    // TODO: remove hardcoded values when configuration is available
     pub(super) fn on_motion_notify(&mut self, ev: MotionNotifyEvent) -> xcb::Result<()> {
         let window_id = ev.event();
         let frame_id = *self.framed_clients.get(&window_id).unwrap();
@@ -137,7 +137,7 @@ impl WindowManager {
                 ],
             })?,
             DragType::Resize => {
-                let (x, y, w, h) = match ret_ok_if_none!(drag_start_frame_rect.corner(&drag_start)) {
+                let (x, y, w, h) = match ret_ok_if_none!(drag_start_frame_rect.quadrant(&drag_start)) {
                     // TODO: change anchor point while resizing depending on corner
                     _ => (
                         None,
