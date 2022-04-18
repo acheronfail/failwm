@@ -29,8 +29,8 @@ enum DragType {
 }
 
 /// The reason why the WindowManager is quitting.
-#[derive(Debug)]
-enum QuitReason {
+#[derive(Debug, Clone, Copy)]
+pub enum QuitReason {
     UserQuit,
 }
 
@@ -115,17 +115,13 @@ impl WindowManager {
     }
 
     /// Become the window manager and start managing windows!
-    pub fn run(&mut self) -> xcb::Result<()> {
+    pub fn run(&mut self) -> xcb::Result<QuitReason> {
         self.become_window_manager()?;
         self.reparent_existing_windows()?;
 
         loop {
-            match self.quit_reason {
-                None => {}
-                Some(QuitReason::UserQuit) => {
-                    println!("Quitting due to user action.");
-                    break;
-                }
+            if let Some(quit_reason) = self.quit_reason {
+                return Ok(quit_reason);
             }
 
             let event = match self.conn.wait_for_event() {
@@ -167,7 +163,5 @@ impl WindowManager {
                 }
             }
         }
-
-        Ok(())
     }
 }

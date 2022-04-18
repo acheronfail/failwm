@@ -5,7 +5,7 @@ use xcb::x::{
 };
 
 use super::{DragType, QuitReason, WindowManager};
-use crate::{point::Point, ret_if_none};
+use crate::{point::Point, ret_ok_if_none};
 
 impl WindowManager {
     /**
@@ -113,11 +113,11 @@ impl WindowManager {
         let window_id = ev.event();
         let frame_id = *self.framed_clients.get(&window_id).unwrap();
 
-        let drag_start = ret_if_none!(self.drag_start);
-        let drag_start_frame_rect = ret_if_none!(self.drag_start_frame_rect);
+        let drag_start = ret_ok_if_none!(self.drag_start);
+        let drag_start_frame_rect = ret_ok_if_none!(self.drag_start_frame_rect);
 
         let delta = Point::new(ev.root_x(), ev.root_y()) - drag_start;
-        let drag_type = ret_if_none!(if ev.state().contains(x::KeyButMask::BUTTON1) {
+        let drag_type = ret_ok_if_none!(if ev.state().contains(x::KeyButMask::BUTTON1) {
             Some(DragType::Move)
         } else if ev.state().contains(x::KeyButMask::BUTTON3) {
             Some(DragType::Resize)
@@ -137,7 +137,7 @@ impl WindowManager {
                 ],
             })?,
             DragType::Resize => {
-                let (x, y, w, h) = match ret_if_none!(drag_start_frame_rect.corner(&drag_start)) {
+                let (x, y, w, h) = match ret_ok_if_none!(drag_start_frame_rect.corner(&drag_start)) {
                     // TODO: change anchor point while resizing depending on corner
                     _ => (
                         None,

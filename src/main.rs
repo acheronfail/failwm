@@ -1,3 +1,5 @@
+use wm::QuitReason;
+
 mod macros;
 mod point;
 mod rect;
@@ -13,5 +15,11 @@ fn main() -> xcb::Result<()> {
 
     // Event loop
     let mut app = wm::WindowManager::new()?;
-    app.run()
+    match app.run()? {
+        QuitReason::UserQuit => {
+            println!("Quitting due to user action.");
+        }
+    }
+
+    Ok(())
 }
