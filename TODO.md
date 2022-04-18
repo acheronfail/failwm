@@ -1,0 +1,36 @@
+# To Do
+
+- [ ] structured logging
+- [ ] fix resizing
+  - [ ] seems to be limited to events within a single window only?
+  - [ ] better resizing using quadrants
+- [ ] better keycode checks (not hardcoded, can I use xcb headers?)
+- [ ] useful frames
+  - [ ] titles
+  - [ ] active state
+  - [ ] mouse events
+    - [ ] dragging
+    - [ ] scrolling
+    - [ ] clicking
+- [ ] status bar support
+- [ ] tiling
+  - [ ] tabbed layouts
+  - [ ] workspaces
+  - [ ] tiled layouts
+  - [ ] stacked layouts
+- [ ] support keymaps
+- [ ] support configuration
+  - [ ] DSL? existing language?
+  - [ ] keyboard mappings
+  - [ ] mouse mappings
+  - [ ] "modes"
+  - [ ] autostart
+  - [ ] multiple file support
+- [ ] compositing
+  - [ ] sliding animation between workspaces
+  - [ ] snapping animations when moving windows
+  - [ ] wobbly windows?! (a la compiz)
+- [ ] plugins/ipc
+  - [ ] JSON? some other format?
+  - [ ] shared socket? child process with io?
+- [ ] investigate how much work it would be to support both X and wayland
