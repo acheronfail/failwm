@@ -1,6 +1,7 @@
 # To Do
 
 - [ ] structured logging
+- [ ] fix quit shortcut: only fires on a window, probably need to grab on root window
 - [ ] fix resizing
   - [ ] seems to be limited to events within a single window only?
   - [ ] better resizing using quadrants
@@ -30,6 +31,12 @@
   - [ ] sliding animation between workspaces
   - [ ] snapping animations when moving windows
   - [ ] wobbly windows?! (a la compiz)
+- [ ] CLI
+  - [ ] clap
+- [ ] README
+  - [ ] contributing
+  - [ ] guide to compilation, dev loop, etc
+  - [ ] licenses
 - [ ] plugins/ipc
   - [ ] JSON? some other format?
   - [ ] shared socket? child process with io?

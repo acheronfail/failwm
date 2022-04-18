@@ -103,6 +103,7 @@ impl WindowManager {
             }
             _ => unimplemented!(),
         }
+
         Ok(())
     }
 
@@ -116,6 +117,7 @@ impl WindowManager {
 
     /// Become the window manager and start managing windows!
     pub fn run(&mut self) -> xcb::Result<QuitReason> {
+        // WM setup
         self.become_window_manager()?;
         self.reparent_existing_windows()?;
 

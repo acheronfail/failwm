@@ -76,6 +76,7 @@ impl WindowManager {
         }
 
         // CTRL + SHIFT + Q - kill window manager
+        // TODO: this has to be fired on a window
         if ev.state().contains(x::KeyButMask::CONTROL | x::KeyButMask::SHIFT) && ev.detail() == 0x18 {
             self.quit_reason = Some(QuitReason::UserQuit);
         }
