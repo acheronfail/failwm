@@ -6,6 +6,8 @@
   "configurations": [
     {
       "type": "lldb",
+      // NOTE: on some systems this is restricted
+      // echo 0 | sudo tee -a /proc/sys/kernel/yama/ptrace_scope
       "request": "attach",
       "name": "Debug r3 (Xephyr)",
       "cargo": {
