@@ -5,7 +5,7 @@ pub enum Corner {
     TopLeft,
     TopRight,
     BottomLeft,
-    BottomRight
+    BottomRight,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -13,7 +13,7 @@ pub struct Rect {
     pub x: i16,
     pub y: i16,
     pub width: u16,
-    pub height: u16
+    pub height: u16,
 }
 
 impl Rect {
@@ -22,8 +22,8 @@ impl Rect {
     }
 
     pub fn contains(&self, point: &Point) -> bool {
-        (self.x <= point.x && point.x <= self.x + self.width as i16) &&
-        (self.y <= point.y && point.y <= self.y + self.height as i16)
+        (self.x <= point.x && point.x <= self.x + self.width as i16)
+            && (self.y <= point.y && point.y <= self.y + self.height as i16)
     }
 
     pub fn corner(&self, point: &Point) -> Option<Corner> {

@@ -11,9 +11,7 @@ fn main() -> xcb::Result<()> {
         nix::sys::signal::raise(nix::sys::signal::SIGSTOP).unwrap();
     }
 
-    let (conn, screen_num) = xcb::Connection::connect_with_extensions(None, &[xcb::Extension::Xkb], &[])?;
-
     // Event loop
-    let mut app = wm::WindowManager::new(conn, screen_num)?;
+    let mut app = wm::WindowManager::new()?;
     app.run()
 }
