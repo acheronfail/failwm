@@ -5,7 +5,7 @@ use xcb::x::{
 };
 
 use super::{DragType, QuitReason, WindowManager};
-use crate::{point::Point, ret_ok_if_none};
+use crate::{point::Point, rect::Quadrant, ret_ok_if_none};
 
 impl WindowManager {
     /**
@@ -126,49 +126,41 @@ impl WindowManager {
             None
         });
 
-        // FIXME: these events don't fire if the mouse moves out of the window itself
-        //  in order to draw like i3, we may need to register events on the root window
-        // TODO: also like i3, if in top-left cut, resize and move rather than just resize
         match drag_type {
-            DragType::Move => self.conn.send_and_check_request(&x::ConfigureWindow {
-                window: frame_id,
-                value_list: &[
-                    x::ConfigWindow::X((drag_start_frame_rect.x + delta.x) as i32),
-                    x::ConfigWindow::Y((drag_start_frame_rect.y + delta.y) as i32),
-                ],
-            })?,
-            DragType::Resize => {
-                let (x, y, w, h) = match ret_ok_if_none!(drag_start_frame_rect.quadrant(&drag_start)) {
-                    // TODO: change anchor point while resizing depending on corner
-                    _ => (
-                        None,
-                        None,
-                        cmp::max(0, drag_start_frame_rect.width as i32 + delta.x as i32) as u32,
-                        cmp::max(0, drag_start_frame_rect.height as i32 + delta.y as i32) as u32,
+            DragType::Move => self.move_window(
+                frame_id,
+                (drag_start_frame_rect.x + delta.x, drag_start_frame_rect.y + delta.y).into(),
+            )?,
+            DragType::Resize => self.resize_window(
+                frame_id,
+                match ret_ok_if_none!(drag_start_frame_rect.quadrant(&drag_start)) {
+                    Quadrant::TopLeft => (
+                        drag_start_frame_rect.x + delta.x,
+                        drag_start_frame_rect.y + delta.y,
+                        cmp::max(0, drag_start_frame_rect.w as i32 - delta.x as i32) as u16,
+                        cmp::max(0, drag_start_frame_rect.h as i32 - delta.y as i32) as u16,
                     ),
-                };
-
-                // NOTE: items in value_list must be sorted
-                let mut value_list = vec![];
-                if let Some(x) = x {
-                    value_list.push(x::ConfigWindow::X(x));
+                    Quadrant::TopRight => (
+                        drag_start_frame_rect.x,
+                        drag_start_frame_rect.y + delta.y,
+                        cmp::max(0, drag_start_frame_rect.w as i32 + delta.x as i32) as u16,
+                        cmp::max(0, drag_start_frame_rect.h as i32 - delta.y as i32) as u16,
+                    ),
+                    Quadrant::BottomLeft => (
+                        drag_start_frame_rect.x + delta.x,
+                        drag_start_frame_rect.y,
+                        cmp::max(0, drag_start_frame_rect.w as i32 - delta.x as i32) as u16,
+                        cmp::max(0, drag_start_frame_rect.h as i32 + delta.y as i32) as u16,
+                    ),
+                    Quadrant::BottomRight => (
+                        drag_start_frame_rect.x,
+                        drag_start_frame_rect.y,
+                        cmp::max(0, drag_start_frame_rect.w as i32 + delta.x as i32) as u16,
+                        cmp::max(0, drag_start_frame_rect.h as i32 + delta.y as i32) as u16,
+                    ),
                 }
-                if let Some(y) = y {
-                    value_list.push(x::ConfigWindow::Y(y));
-                }
-                value_list.push(x::ConfigWindow::Width(w));
-                value_list.push(x::ConfigWindow::Height(h));
-
-                let value_list = &value_list;
-                self.conn.send_and_check_request(&x::ConfigureWindow {
-                    window: frame_id,
-                    value_list,
-                })?;
-                self.conn.send_and_check_request(&x::ConfigureWindow {
-                    window: window_id,
-                    value_list,
-                })?;
-            }
+                .into(),
+            )?,
         }
 
         Ok(())

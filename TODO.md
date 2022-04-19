@@ -4,7 +4,7 @@
 - [ ] fix quit shortcut: only fires on a window, probably need to grab on root window
 - [ ] fix resizing
   - [ ] seems to be limited to events within a single window only?
-  - [ ] better resizing using quadrants
+  - [x] better resizing using quadrants
 - [ ] better keycode checks (not hardcoded, can I use xcb headers?)
 - [ ] useful frames
   - [ ] titles

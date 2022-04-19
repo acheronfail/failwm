@@ -1,5 +1,7 @@
 use xcb::{x, Xid};
 
+use crate::{point::Point, rect::Rect};
+
 use super::WindowManager;
 
 impl WindowManager {
@@ -34,8 +36,12 @@ impl WindowManager {
             border_width: 3,
             class: x::WindowClass::CopyFromParent,
             value_list: &[
+                // Frame background color
+                // TODO: can I make this transparent in any way?
+                x::Cw::BackPixel(0x0000ff),
                 // Border pixel colour
                 x::Cw::BorderPixel(0xff0000),
+                // Which events to capture and send to the event loop
                 x::Cw::EventMask(x::EventMask::SUBSTRUCTURE_REDIRECT | x::EventMask::SUBSTRUCTURE_NOTIFY),
             ],
         })?;
@@ -124,7 +130,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn supports_wm_delete_window(&self, window: x::Window) -> xcb::Result<bool> {
+    fn supports_wm_delete_window(&self, window: x::Window) -> xcb::Result<bool> {
         // Check if the window has declared support for WM_DELETE_WINDOW
         let property = self.conn.wait_for_reply(self.conn.send_request(&x::GetProperty {
             delete: false,
@@ -161,6 +167,52 @@ impl WindowManager {
                 })?;
             }
         }
+
+        Ok(())
+    }
+
+    pub(super) fn move_window(&self, window: x::Window, pos: Point) -> xcb::Result<()> {
+        let value_list = &[x::ConfigWindow::X(pos.x.into()), x::ConfigWindow::Y(pos.y.into())];
+
+        // Move frame if it has one
+        if let Some(frame_id) = self.framed_clients.get(&window) {
+            self.conn.send_and_check_request(&x::ConfigureWindow {
+                window: *frame_id,
+                value_list,
+            })?;
+        }
+
+        // Move window
+        self.conn
+            .send_and_check_request(&x::ConfigureWindow { window, value_list })?;
+        Ok(())
+    }
+
+    pub(super) fn resize_window(&self, window: x::Window, rect: Rect) -> xcb::Result<()> {
+        let mut value_list = vec![
+            x::ConfigWindow::X(rect.x.into()),
+            x::ConfigWindow::Y(rect.y.into()),
+            x::ConfigWindow::Width(rect.w.into()),
+            x::ConfigWindow::Height(rect.h.into()),
+        ];
+
+        // Move frame if it has one
+        if let Some(frame_id) = self.framed_clients.get(&window) {
+            self.conn.send_and_check_request(&x::ConfigureWindow {
+                window: *frame_id,
+                value_list: &value_list,
+            })?;
+
+            // NOTE: x and y coords are relative to parent window (in this case the frame)
+            value_list[0] = x::ConfigWindow::X(0);
+            value_list[1] = x::ConfigWindow::Y(0);
+        }
+
+        // Move window
+        self.conn.send_and_check_request(&x::ConfigureWindow {
+            window,
+            value_list: &value_list,
+        })?;
 
         Ok(())
     }
