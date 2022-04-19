@@ -5,10 +5,20 @@ use crate::{point::Point, rect::Rect};
 use super::WindowManager;
 
 impl WindowManager {
-    pub(super) fn frame_window(&mut self, window_id: x::Window, existed_before_wm: bool) -> xcb::Result<()> {
+    pub(super) fn get_frame_and_window(&self, target: x::Window) -> Option<(x::Window, x::Window)> {
+        if let Some(frame) = self.framed_clients.get_by_left(&target) {
+            Some((target, *frame))
+        } else if let Some(window) = self.framed_clients.get_by_right(&target) {
+            Some((*window, target))
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn frame_window(&mut self, window: x::Window, existed_before_wm: bool) -> xcb::Result<()> {
         // Get window attributes
         let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
-            drawable: x::Drawable::Window(window_id),
+            drawable: x::Drawable::Window(window),
         }))?;
 
         // If window was created before window manager started, we should frame
@@ -16,24 +26,25 @@ impl WindowManager {
         if existed_before_wm {
             let attrs = self
                 .conn
-                .wait_for_reply(self.conn.send_request(&x::GetWindowAttributes { window: window_id }))?;
+                .wait_for_reply(self.conn.send_request(&x::GetWindowAttributes { window }))?;
             if attrs.override_redirect() || attrs.map_state() != x::MapState::Viewable {
                 return Ok(());
             }
         }
 
         // Create frame
-        let frame_id = self.conn.generate_id();
+        let frame = self.conn.generate_id();
+        let root_window = self.get_root()?;
         self.conn.send_and_check_request(&x::CreateWindow {
             depth: x::COPY_FROM_PARENT as u8,   // TODO: ???
             visual: x::COPY_FROM_PARENT as u32, // TODO: ???
-            wid: frame_id,
-            parent: self.get_root()?,
+            wid: frame,
+            parent: root_window,
             x: geo.x(),
             y: geo.y(),
             width: geo.width(),
             height: geo.height(),
-            border_width: 3,
+            border_width: 10,
             class: x::WindowClass::CopyFromParent,
             value_list: &[
                 // Frame background color
@@ -49,40 +60,40 @@ impl WindowManager {
         // Add window to save set
         // TODO: doc why
         self.conn.send_and_check_request(&x::ChangeSaveSet {
-            window: window_id,
+            window,
             mode: x::SetMode::Insert,
         })?;
 
         // Re-parent window into frame
         self.conn.send_and_check_request(&x::ReparentWindow {
-            window: window_id,
-            parent: frame_id,
+            window,
+            parent: frame,
             // Offset of client window within frame
             x: 0,
             y: 0,
         })?;
 
         // Map frame
-        self.conn.send_and_check_request(&x::MapWindow { window: frame_id })?;
+        self.conn.send_and_check_request(&x::MapWindow { window: frame })?;
 
         // Save association b/w window and frame
-        self.framed_clients.insert(window_id, frame_id);
+        self.framed_clients.insert(window, frame);
 
         // Button (mouse) handling
         self.conn.send_and_check_request(&x::GrabButton {
-            grab_window: window_id,
+            grab_window: window,
             owner_events: false,
             event_mask: x::EventMask::BUTTON_PRESS | x::EventMask::BUTTON_RELEASE | x::EventMask::BUTTON_MOTION,
             pointer_mode: x::GrabMode::Async,
             keyboard_mode: x::GrabMode::Async,
-            confine_to: window_id,
+            confine_to: root_window,
             cursor: xcb::Xid::none(),
             button: x::ButtonIndex::Any,
             modifiers: x::ModMask::CONTROL,
         })?;
 
         self.conn.send_and_check_request(&x::GrabKey {
-            grab_window: window_id,
+            grab_window: window,
             owner_events: false,
             key: 0x18, // Q on qwerty TODO: support keymaps
             pointer_mode: x::GrabMode::Async,
@@ -94,7 +105,7 @@ impl WindowManager {
     }
 
     pub(super) fn unframe_window(&mut self, window_id: x::Window) -> xcb::Result<()> {
-        let frame_id = match self.framed_clients.get(&window_id) {
+        let frame_id = match self.framed_clients.get_by_left(&window_id) {
             Some(id) => id,
             None => return Ok(()),
         };
@@ -123,7 +134,7 @@ impl WindowManager {
         self.conn.send_request_checked(&x::DestroyWindow { window: *frame_id });
 
         // Drop window->frame association
-        self.framed_clients.remove(&window_id);
+        self.framed_clients.remove_by_left(&window_id);
 
         self.conn.flush()?;
 
@@ -174,17 +185,17 @@ impl WindowManager {
     pub(super) fn move_window(&self, window: x::Window, pos: Point) -> xcb::Result<()> {
         let value_list = &[x::ConfigWindow::X(pos.x.into()), x::ConfigWindow::Y(pos.y.into())];
 
-        // Move frame if it has one
-        if let Some(frame_id) = self.framed_clients.get(&window) {
-            self.conn.send_and_check_request(&x::ConfigureWindow {
-                window: *frame_id,
-                value_list,
-            })?;
-        }
+        let id = match self.framed_clients.get_by_left(&window) {
+            // If it has a frame, move the frame
+            Some(frame) => *frame,
+            // If it doesn't, just move the window
+            None => window,
+        };
 
         // Move window
         self.conn
-            .send_and_check_request(&x::ConfigureWindow { window, value_list })?;
+            .send_and_check_request(&x::ConfigureWindow { window: id, value_list })?;
+
         Ok(())
     }
 
@@ -197,7 +208,7 @@ impl WindowManager {
         ];
 
         // Move frame if it has one
-        if let Some(frame_id) = self.framed_clients.get(&window) {
+        if let Some(frame_id) = self.framed_clients.get_by_left(&window) {
             self.conn.send_and_check_request(&x::ConfigureWindow {
                 window: *frame_id,
                 value_list: &value_list,

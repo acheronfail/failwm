@@ -13,7 +13,7 @@ impl WindowManager {
      */
 
     pub(super) fn on_configure_request(&self, ev: ConfigureRequestEvent) -> xcb::Result<()> {
-        let window_id = ev.window();
+        let window = ev.window();
         let value_list = [
             x::ConfigWindow::X(ev.x() as i32),
             x::ConfigWindow::Y(ev.y() as i32),
@@ -26,7 +26,7 @@ impl WindowManager {
         ];
 
         // If we've already framed this window, also update the frame
-        if let Some(frame_id) = self.framed_clients.get(&window_id) {
+        if let Some(frame_id) = self.framed_clients.get_by_left(&window) {
             self.conn.send_and_check_request(&x::ConfigureWindow {
                 window: *frame_id,
                 value_list: &value_list,
@@ -35,7 +35,7 @@ impl WindowManager {
 
         // Pass request straight through to the X server for window
         self.conn.send_and_check_request(&x::ConfigureWindow {
-            window: window_id,
+            window,
             value_list: &value_list,
         })?;
 
@@ -43,11 +43,11 @@ impl WindowManager {
     }
 
     pub(super) fn on_map_request(&mut self, ev: MapRequestEvent) -> xcb::Result<()> {
-        let window_id = ev.window();
+        let window = ev.window();
         // First, we re-parent it with a frame
-        self.frame_window(window_id, false)?;
+        self.frame_window(window, false)?;
         // Then, we actually map the window
-        self.conn.send_and_check_request(&x::MapWindow { window: window_id })?;
+        self.conn.send_and_check_request(&x::MapWindow { window })?;
 
         Ok(())
     }
@@ -93,16 +93,17 @@ impl WindowManager {
      */
 
     pub(super) fn on_button_press(&mut self, ev: ButtonPressEvent) -> xcb::Result<()> {
-        let frame_id = *self.framed_clients.get(&ev.event()).unwrap();
+        let target = ev.event();
+        let (_, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
         let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
-            drawable: x::Drawable::Window(frame_id),
+            drawable: x::Drawable::Window(frame),
         }))?;
 
         self.drag_start = Some((ev.root_x(), ev.root_y()).into());
         self.drag_start_frame_rect = Some((geo.x(), geo.y(), geo.width(), geo.height()).into());
 
         self.conn.send_and_check_request(&x::ConfigureWindow {
-            window: ev.event(),
+            window: frame,
             value_list: &[x::ConfigWindow::StackMode(x::StackMode::Above)],
         })?;
 
@@ -111,8 +112,8 @@ impl WindowManager {
 
     // TODO: remove hardcoded values when configuration is available
     pub(super) fn on_motion_notify(&mut self, ev: MotionNotifyEvent) -> xcb::Result<()> {
-        let window_id = ev.event();
-        let frame_id = *self.framed_clients.get(&window_id).unwrap();
+        let target = ev.event();
+        let (window, _) = ret_ok_if_none!(self.get_frame_and_window(target));
 
         let drag_start = ret_ok_if_none!(self.drag_start);
         let drag_start_frame_rect = ret_ok_if_none!(self.drag_start_frame_rect);
@@ -128,11 +129,11 @@ impl WindowManager {
 
         match drag_type {
             DragType::Move => self.move_window(
-                frame_id,
+                window,
                 (drag_start_frame_rect.x + delta.x, drag_start_frame_rect.y + delta.y).into(),
             )?,
             DragType::Resize => self.resize_window(
-                frame_id,
+                window,
                 match ret_ok_if_none!(drag_start_frame_rect.quadrant(&drag_start)) {
                     Quadrant::TopLeft => (
                         drag_start_frame_rect.x + delta.x,
