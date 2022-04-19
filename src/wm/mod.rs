@@ -82,11 +82,12 @@ impl WindowManager {
         self.conn.send_and_check_request(&x::GrabServer {})?;
 
         // Frame all pre-existing windows that are visible
-        let query_tree = self.conn.wait_for_reply(self.conn.send_request(&x::QueryTree {
-            window: self.get_root()?,
-        }))?;
+        let root = self.get_root()?;
+        let query_tree = self
+            .conn
+            .wait_for_reply(self.conn.send_request(&x::QueryTree { window: root }))?;
 
-        assert_eq!(self.get_root()?, query_tree.root());
+        assert_eq!(root, query_tree.root());
 
         for window in query_tree.children() {
             self.frame_window(*window, true)?;
@@ -132,6 +133,16 @@ impl WindowManager {
         // WM setup
         self.become_window_manager()?;
         self.reparent_existing_windows()?;
+
+        // Bind key events on root window so they're always reported
+        self.conn.send_and_check_request(&x::GrabKey {
+            grab_window: self.get_root()?,
+            owner_events: false,
+            key: 0x18, // Q on qwerty TODO: support keymaps
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+            modifiers: x::ModMask::ANY,
+        })?;
 
         loop {
             if let Some(quit_reason) = self.quit_reason {

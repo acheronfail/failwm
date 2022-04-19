@@ -92,15 +92,6 @@ impl WindowManager {
             modifiers: x::ModMask::CONTROL,
         })?;
 
-        self.conn.send_and_check_request(&x::GrabKey {
-            grab_window: window,
-            owner_events: false,
-            key: 0x18, // Q on qwerty TODO: support keymaps
-            pointer_mode: x::GrabMode::Async,
-            keyboard_mode: x::GrabMode::Async,
-            modifiers: x::ModMask::ANY,
-        })?;
-
         Ok(())
     }
 
@@ -155,8 +146,10 @@ impl WindowManager {
         Ok(property.value::<x::Atom>().contains(&self.atoms.wm_del_window))
     }
 
-    pub(super) fn kill_window(&self, window: x::Window) -> xcb::Result<()> {
-        match self.supports_wm_delete_window(window)? {
+    pub(super) fn kill_window(&self, target: x::Window) -> xcb::Result<()> {
+        // If the target is a frame, then kill its window; otherwise kill the target.
+        let target = *self.framed_clients.get_by_right(&target).unwrap_or(&target);
+        match self.supports_wm_delete_window(target)? {
             // If it does support it, send an event to kill it gracefully
             true => {
                 let data =
@@ -164,9 +157,9 @@ impl WindowManager {
 
                 self.conn.send_request(&x::SendEvent {
                     propagate: false,
-                    destination: x::SendEventDest::Window(window),
+                    destination: x::SendEventDest::Window(target),
                     event_mask: x::EventMask::NO_EVENT,
-                    event: &x::ClientMessageEvent::new(window, self.atoms.wm_protocols, data),
+                    event: &x::ClientMessageEvent::new(target, self.atoms.wm_protocols, data),
                 });
 
                 self.conn.flush()?;
@@ -174,7 +167,7 @@ impl WindowManager {
             // If it doesn't support it, just kill the client
             false => {
                 self.conn.send_and_check_request(&x::KillClient {
-                    resource: window.resource_id(),
+                    resource: target.resource_id(),
                 })?;
             }
         }
@@ -226,5 +219,32 @@ impl WindowManager {
         })?;
 
         Ok(())
+    }
+
+    pub(super) fn get_window_rect(&self, target: x::Window) -> xcb::Result<Rect> {
+        let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
+            drawable: x::Drawable::Window(target),
+        }))?;
+
+        Ok((geo.x(), geo.y(), geo.width(), geo.height()).into())
+    }
+
+    pub(super) fn window_at_pos(&self, root: x::Window, pos: Point) -> xcb::Result<Option<x::Window>> {
+        let query_tree = self
+            .conn
+            .wait_for_reply(self.conn.send_request(&x::QueryTree { window: root }))?;
+
+        assert_eq!(root, query_tree.root());
+
+        for window in query_tree.children() {
+            // FIXME: check visibility and stacking order, etc - this kills the wrong window if another is placed above it
+            //  this entire function can be removed once we sort out "focus"
+            let win_rect = self.get_window_rect(*window)?;
+            if win_rect.contains(&pos) {
+                return Ok(Some(*window));
+            }
+        }
+
+        Ok(None)
     }
 }

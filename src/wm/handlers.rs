@@ -69,16 +69,19 @@ impl WindowManager {
 
     // TODO: remove hardcoded values when configuration is available
     pub(super) fn on_key_press(&mut self, ev: KeyPressEvent) -> xcb::Result<()> {
-        let window_id = ev.event();
-        // CTRL + Q (on qwerty) - kill window
-        if ev.state().contains(x::KeyButMask::CONTROL) && ev.detail() == 0x18 {
-            self.kill_window(window_id)?;
-        }
-
         // CTRL + SHIFT + Q - kill window manager
         // TODO: this has to be fired on a window
         if ev.state().contains(x::KeyButMask::CONTROL | x::KeyButMask::SHIFT) && ev.detail() == 0x18 {
             self.quit_reason = Some(QuitReason::UserQuit);
+            return Ok(());
+        }
+
+        // TODO: we choose focused window by cursor right now, but that's not right (should be whichever has focus, or is active, etc)
+        if let Some(window) = self.window_at_pos(ev.root(), (ev.root_x(), ev.root_y()).into())? {
+            // CTRL + Q (on qwerty) - kill window
+            if ev.state().contains(x::KeyButMask::CONTROL) && ev.detail() == 0x18 {
+                self.kill_window(window)?;
+            }
         }
 
         Ok(())
@@ -95,12 +98,9 @@ impl WindowManager {
     pub(super) fn on_button_press(&mut self, ev: ButtonPressEvent) -> xcb::Result<()> {
         let target = ev.event();
         let (_, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
-        let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
-            drawable: x::Drawable::Window(frame),
-        }))?;
 
         self.drag_start = Some((ev.root_x(), ev.root_y()).into());
-        self.drag_start_frame_rect = Some((geo.x(), geo.y(), geo.width(), geo.height()).into());
+        self.drag_start_frame_rect = Some(self.get_window_rect(frame)?);
 
         self.conn.send_and_check_request(&x::ConfigureWindow {
             window: frame,
