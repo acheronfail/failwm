@@ -1,7 +1,8 @@
 use std::cmp;
 
 use xcb::x::{
-    self, ButtonPressEvent, ConfigureRequestEvent, KeyPressEvent, MapRequestEvent, MotionNotifyEvent, UnmapNotifyEvent,
+    self, ButtonPressEvent, ConfigureRequestEvent, EnterNotifyEvent, ExposeEvent, FocusInEvent, FocusOutEvent,
+    KeyPressEvent, LeaveNotifyEvent, MapRequestEvent, MotionNotifyEvent, PropertyNotifyEvent, UnmapNotifyEvent,
 };
 
 use super::{DragType, QuitReason, WindowManager};
@@ -45,9 +46,13 @@ impl WindowManager {
     pub(super) fn on_map_request(&mut self, ev: MapRequestEvent) -> xcb::Result<()> {
         let window = ev.window();
         // First, we re-parent it with a frame
-        self.frame_window(window, false)?;
+        let frame = self.frame_window(window, false)?;
+
         // Then, we actually map the window
         self.conn.send_and_check_request(&x::MapWindow { window })?;
+
+        // Focus the newly mapped window or frame (if one was created)
+        self.focused_window = frame.or(Some(window));
 
         Ok(())
     }
@@ -55,7 +60,7 @@ impl WindowManager {
     pub(super) fn on_unmap_notify(&mut self, ev: UnmapNotifyEvent) -> xcb::Result<()> {
         // Any windows existing before we started that are framed in `App::reparent_existing_windows`
         // trigger an UnmapNotify event when they're re-parented. We just ignore these events here.
-        if ev.event() == self.get_root()? {
+        if ev.event() == self.get_root_window()? {
             return Ok(());
         }
 
@@ -170,6 +175,37 @@ impl WindowManager {
     pub(super) fn on_button_release(&mut self, _ev: ButtonPressEvent) -> xcb::Result<()> {
         self.drag_start = None;
         self.drag_start_frame_rect = None;
+        Ok(())
+    }
+
+    /**
+     * Window Events
+     */
+
+    pub(super) fn on_enter_notify(&mut self, ev: EnterNotifyEvent) -> xcb::Result<()> {
+        let target = ev.event();
+        self.focused_window = Some(*self.framed_clients.get_by_right(&target).unwrap_or(&target));
+
+        Ok(())
+    }
+
+    pub(super) fn on_leave_notify(&self, _ev: LeaveNotifyEvent) -> xcb::Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn on_expose(&self, _ev: ExposeEvent) -> xcb::Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn on_focus_in(&self, _ev: FocusInEvent) -> xcb::Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn on_focus_out(&self, _ev: FocusOutEvent) -> xcb::Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn on_property_notify(&self, _ev: PropertyNotifyEvent) -> xcb::Result<()> {
         Ok(())
     }
 }

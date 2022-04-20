@@ -7,9 +7,12 @@ edition = "2021"
 
 [dependencies]
 bimap = "0.6.2"
-nix = "0.23.1"
+lazy_static = "1.4.0"
+nix = { version = "0.23.1", optional = true }
 xcb = { version = "1.1.1", features = ["composite", "xkb"] }
+
+[target]
 
 [features]
 default = []
-debug = ["xcb/debug_atom_names"]
+debug = ["dep:nix", "xcb/debug_atom_names"]

@@ -9,6 +9,7 @@ mod wm;
 //  unsure how difficult this will be (seems to be mostly X code for now)
 fn main() -> xcb::Result<()> {
     // Stop and wait for debugger if R3_DEBUG present
+    #[cfg(feature = "debug")]
     if matches!(std::env::var("R3_DEBUG"), Ok(_)) {
         nix::sys::signal::raise(nix::sys::signal::SIGSTOP).unwrap();
     }

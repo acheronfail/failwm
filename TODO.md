@@ -3,11 +3,12 @@
 - [ ] structured logging
 - [x] fix quit shortcut: only fires on a window, probably need to grab on root window
 - [ ] implement "focus"
-  - [ ] different border color
-  - [ ] key events fire on focused window
+  - [x] different border color
+  - [x] key events fire on focused window
+  - [ ] ability to turn off "focus_follows_mouse"
 - [ ] change cursor on background
 - [ ] fix resizing
-  - [ ] seems to be limited to events within a single window only?
+  - [x] seems to be limited to events within a single window only?
   - [x] better resizing using quadrants
   - [ ] change to appropriate cursor per quadrant when resizing
 - [ ] better keycode checks (not hardcoded, can I use xcb headers?)

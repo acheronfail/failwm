@@ -2,7 +2,7 @@ use xcb::{x, Xid};
 
 use crate::{point::Point, rect::Rect};
 
-use super::WindowManager;
+use super::{masks::MASKS, WindowManager};
 
 impl WindowManager {
     pub(super) fn get_frame_and_window(&self, target: x::Window) -> Option<(x::Window, x::Window)> {
@@ -15,7 +15,11 @@ impl WindowManager {
         }
     }
 
-    pub(super) fn frame_window(&mut self, window: x::Window, existed_before_wm: bool) -> xcb::Result<()> {
+    pub(super) fn frame_window(
+        &mut self,
+        window: x::Window,
+        existed_before_wm: bool,
+    ) -> xcb::Result<Option<x::Window>> {
         // Get window attributes
         let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
             drawable: x::Drawable::Window(window),
@@ -28,13 +32,13 @@ impl WindowManager {
                 .conn
                 .wait_for_reply(self.conn.send_request(&x::GetWindowAttributes { window }))?;
             if attrs.override_redirect() || attrs.map_state() != x::MapState::Viewable {
-                return Ok(());
+                return Ok(None);
             }
         }
 
         // Create frame
         let frame = self.conn.generate_id();
-        let root_window = self.get_root()?;
+        let root_window = self.get_root_window()?;
         self.conn.send_and_check_request(&x::CreateWindow {
             depth: x::COPY_FROM_PARENT as u8,   // TODO: ???
             visual: x::COPY_FROM_PARENT as u32, // TODO: ???
@@ -53,8 +57,16 @@ impl WindowManager {
                 // Border pixel colour
                 x::Cw::BorderPixel(0xff0000),
                 // Which events to capture and send to the event loop
-                x::Cw::EventMask(x::EventMask::SUBSTRUCTURE_REDIRECT | x::EventMask::SUBSTRUCTURE_NOTIFY),
+                // NOTE: we ignore enter events during re-parenting
+                x::Cw::EventMask(MASKS.frame_window_events & !x::EventMask::ENTER_WINDOW),
             ],
+        })?;
+
+        // Start listening to window events
+        self.conn.send_and_check_request(&x::ChangeWindowAttributes {
+            window,
+            // Which events to capture and send to the event loop
+            value_list: &[x::Cw::EventMask(MASKS.child_window_events)],
         })?;
 
         // Add window to save set
@@ -92,7 +104,13 @@ impl WindowManager {
             modifiers: x::ModMask::CONTROL,
         })?;
 
-        Ok(())
+        // After mapping and re-parenting, configure all the events (including enter window)
+        self.conn.send_and_check_request(&x::ChangeWindowAttributes {
+            window: frame,
+            value_list: &[x::Cw::EventMask(MASKS.frame_window_events)],
+        })?;
+
+        Ok(Some(frame))
     }
 
     pub(super) fn unframe_window(&mut self, window_id: x::Window) -> xcb::Result<()> {
@@ -109,7 +127,7 @@ impl WindowManager {
         // FIXME: when checked this and others below error with BadWindow(3)
         self.conn.send_request_checked(&x::ReparentWindow {
             window: window_id,
-            parent: self.get_root()?,
+            parent: self.get_root_window()?,
             // Offset of client within root
             x: 0,
             y: 0,
