@@ -6,7 +6,7 @@ use xcb::x::{
 };
 
 use super::{DragType, QuitReason, WindowManager};
-use crate::{point::Point, rect::Quadrant, ret_ok_if_none};
+use crate::{point::Point, window_geometry::Quadrant, ret_ok_if_none};
 
 impl WindowManager {
     /**
@@ -102,11 +102,17 @@ impl WindowManager {
 
     pub(super) fn on_button_press(&mut self, ev: ButtonPressEvent) -> xcb::Result<()> {
         let target = ev.event();
-        let (_, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
+        let (window, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
 
-        self.drag_start = Some((ev.root_x(), ev.root_y()).into());
-        self.drag_start_frame_rect = Some(self.get_window_rect(frame)?);
+        // Start a drag if Ctrl is pressed
+        // TODO: configurable modifier
+        if ev.state().contains(x::KeyButMask::CONTROL) || target == frame {
+            self.drag_start = Some((ev.root_x(), ev.root_y()).into());
+            self.drag_start_frame_rect = Some(self.get_window_rect(frame)?);
+        }
 
+        // Focus and raise window
+        self.focused_window = Some(window);
         self.conn.send_and_check_request(&x::ConfigureWindow {
             window: frame,
             value_list: &[x::ConfigWindow::StackMode(x::StackMode::Above)],
@@ -183,8 +189,10 @@ impl WindowManager {
      */
 
     pub(super) fn on_enter_notify(&mut self, ev: EnterNotifyEvent) -> xcb::Result<()> {
-        let target = ev.event();
-        self.focused_window = Some(*self.framed_clients.get_by_right(&target).unwrap_or(&target));
+        if self.config.focus_follows_mouse {
+            let target = ev.event();
+            self.focused_window = Some(*self.framed_clients.get_by_right(&target).unwrap_or(&target));
+        }
 
         Ok(())
     }

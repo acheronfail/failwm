@@ -2,16 +2,21 @@
 
 - [ ] structured logging
 - [x] fix quit shortcut: only fires on a window, probably need to grab on root window
-- [ ] implement "focus"
+- [-] implement "focus"
   - [x] different border color
   - [x] key events fire on focused window
-  - [ ] ability to turn off "focus_follows_mouse"
+  - [x] ability to turn off "focus_follows_mouse"
 - [ ] change cursor on background
 - [ ] fix resizing
   - [x] seems to be limited to events within a single window only?
   - [x] better resizing using quadrants
   - [ ] change to appropriate cursor per quadrant when resizing
-- [ ] better keycode checks (not hardcoded, can I use xcb headers?)
+- [ ] better keycode checks (not hardcoded, can I use xcb or rust-xcb?)
+- [ ] better error code checks (not hardcoded, can I use xcb or rust-xcb?)
+- [ ] button events on window when dragging, etc
+  - [ ] right now, control+clicks are not sent to the underlying application
+- [ ] bugs
+  - [ ] kitty is not re-parented and when it exists crashes with `3` `BadWindow`
 - [ ] useful frames
   - [ ] titles
   - [ ] active state

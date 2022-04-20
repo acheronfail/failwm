@@ -1,9 +1,10 @@
-use wm::QuitReason;
-
+mod config;
 mod macros;
 mod point;
-mod rect;
+mod window_geometry;
 mod wm;
+
+use wm::QuitReason;
 
 // TODO: consider abstracting away X-specific items, and allowing Wayland impls too?
 //  unsure how difficult this will be (seems to be mostly X code for now)
@@ -15,7 +16,7 @@ fn main() -> xcb::Result<()> {
     }
 
     // Event loop
-    let mut app = wm::WindowManager::new()?;
+    let mut app = wm::WindowManager::new(config::Config::new())?;
     match app.run()? {
         QuitReason::UserQuit => {
             println!("Quitting due to user action.");

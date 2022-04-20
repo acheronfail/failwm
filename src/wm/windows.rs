@@ -1,6 +1,6 @@
 use xcb::{x, Xid};
 
-use crate::{point::Point, rect::Rect};
+use crate::{point::Point, window_geometry::WindowGeometry};
 
 use super::{masks::MASKS, WindowManager};
 
@@ -101,7 +101,7 @@ impl WindowManager {
             confine_to: root_window,
             cursor: xcb::Xid::none(),
             button: x::ButtonIndex::Any,
-            modifiers: x::ModMask::CONTROL,
+            modifiers: x::ModMask::ANY,
         })?;
 
         // After mapping and re-parenting, configure all the events (including enter window)
@@ -210,7 +210,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn resize_window(&self, window: x::Window, rect: Rect) -> xcb::Result<()> {
+    pub(super) fn resize_window(&self, window: x::Window, rect: WindowGeometry) -> xcb::Result<()> {
         let mut value_list = vec![
             x::ConfigWindow::X(rect.x.into()),
             x::ConfigWindow::Y(rect.y.into()),
@@ -239,12 +239,17 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn get_window_rect(&self, target: x::Window) -> xcb::Result<Rect> {
+    pub(super) fn get_window_rect(&self, target: x::Window) -> xcb::Result<WindowGeometry> {
         let geo = self.conn.wait_for_reply(self.conn.send_request(&x::GetGeometry {
             drawable: x::Drawable::Window(target),
         }))?;
 
-        Ok((geo.x(), geo.y(), geo.width(), geo.height()).into())
+        let x = geo.x();
+        let y = geo.y();
+        let w = geo.width();
+        let h = geo.height();
+        let bw = geo.border_width();
+        Ok((x, y, w, h, bw).into())
     }
 
     pub(super) fn window_at_pos(&self, root: x::Window, pos: Point) -> xcb::Result<Option<x::Window>> {

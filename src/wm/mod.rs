@@ -5,7 +5,7 @@ mod windows;
 use bimap::BiHashMap;
 use xcb::{x, Connection};
 
-use crate::{point::Point, rect::Rect};
+use crate::{config::Config, point::Point, window_geometry::WindowGeometry};
 
 use self::masks::MASKS;
 
@@ -39,6 +39,9 @@ pub enum QuitReason {
 }
 
 pub struct WindowManager {
+    /// WM Configuration
+    config: Config,
+
     /// XCB connection
     conn: Connection,
     /// The atoms we need
@@ -51,7 +54,7 @@ pub struct WindowManager {
     /// If a drag is in progress, this will contain the coordinates of its starting position
     drag_start: Option<Point>,
     /// If a drag is in progress, this will contain the starting rect of the frame dragged
-    drag_start_frame_rect: Option<Rect>,
+    drag_start_frame_rect: Option<WindowGeometry>,
 
     /// The currently focused window
     focused_window: Option<x::Window>,
@@ -63,10 +66,12 @@ pub struct WindowManager {
 impl WindowManager {
     /// Connect to the X Server and create a `WindowManager`.
     /// It will not attempt to become the X Server's window manager until `.run()` is called.
-    pub fn new() -> xcb::Result<WindowManager> {
+    pub fn new(config: Config) -> xcb::Result<WindowManager> {
         let (conn, default_screen) = xcb::Connection::connect_with_extensions(None, &[xcb::Extension::Xkb], &[])?;
         let atoms = Atoms::intern_all_with_exists(&conn, false)?;
         Ok(WindowManager {
+            config,
+
             conn,
             atoms,
             default_screen,
