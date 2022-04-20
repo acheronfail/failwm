@@ -1,6 +1,6 @@
 use xcb::{x, Xid};
 
-use crate::{point::Point, window_geometry::WindowGeometry};
+use crate::{point::Point, ret_ok_if_none, window_geometry::WindowGeometry};
 
 use super::{masks::MASKS, WindowManager};
 
@@ -113,20 +113,16 @@ impl WindowManager {
         Ok(Some(frame))
     }
 
-    pub(super) fn unframe_window(&mut self, window_id: x::Window) -> xcb::Result<()> {
-        let frame_id = match self.framed_clients.get_by_left(&window_id) {
-            Some(id) => id,
-            None => return Ok(()),
-        };
+    pub(super) fn unframe_window(&mut self, target: x::Window) -> xcb::Result<()> {
+        let (window, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
 
         // Unmap frame
-        self.conn
-            .send_and_check_request(&x::UnmapWindow { window: *frame_id })?;
+        self.conn.send_and_check_request(&x::UnmapWindow { window: frame })?;
 
         // Re-parent client window back to root
         // FIXME: when checked this and others below error with BadWindow(3)
         self.conn.send_request_checked(&x::ReparentWindow {
-            window: window_id,
+            window,
             parent: self.get_root_window()?,
             // Offset of client within root
             x: 0,
@@ -135,15 +131,20 @@ impl WindowManager {
 
         // Remove client window from save set, since we're not managing it anymore
         self.conn.send_request_checked(&x::ChangeSaveSet {
-            window: window_id,
+            window,
             mode: x::SetMode::Delete,
         });
 
         // Destroy the frame
-        self.conn.send_request_checked(&x::DestroyWindow { window: *frame_id });
+        self.conn.send_request_checked(&x::DestroyWindow { window: frame });
 
         // Drop window->frame association
-        self.framed_clients.remove_by_left(&window_id);
+        self.framed_clients.remove_by_left(&window);
+
+        // If it was the focused window, remove it
+        if self.focused_window == Some(window) || self.focused_window == Some(frame) {
+            self.focused_window = None;
+        }
 
         self.conn.flush()?;
 

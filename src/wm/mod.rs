@@ -1,13 +1,13 @@
 mod handlers;
+mod ignored_sequences;
 mod masks;
 mod windows;
 
 use bimap::BiHashMap;
 use xcb::{x, Connection};
 
+use self::{ignored_sequences::IgnoredSequences, masks::MASKS};
 use crate::{config::Config, point::Point, window_geometry::WindowGeometry};
-
-use self::masks::MASKS;
 
 crate::atoms_struct! {
     #[derive(Debug)]
@@ -48,8 +48,15 @@ pub struct WindowManager {
     atoms: Atoms,
     /// X's default screen
     default_screen: i32,
+
     /// A mapping of Window -> Frame to help keep track of framed windows
     framed_clients: BiHashMap<x::Window, x::Window>,
+    /// List of event sequences to ignore. Sometimes, X will trigger EnterNotify events for
+    /// mapped (and unmapped!) windows; these events are indistinguishable from user-generated
+    /// events, and don't provide any value for us. In these cases, we maintain a list of event
+    /// sequences to ignore so we can skip them. This data structure will clean itself up and
+    /// won't infinitely grow in size.
+    ignored_sequences: IgnoredSequences,
 
     /// If a drag is in progress, this will contain the coordinates of its starting position
     drag_start: Option<Point>,
@@ -75,7 +82,9 @@ impl WindowManager {
             conn,
             atoms,
             default_screen,
+
             framed_clients: BiHashMap::new(),
+            ignored_sequences: IgnoredSequences::new(),
 
             drag_start: None,
             drag_start_frame_rect: None,
