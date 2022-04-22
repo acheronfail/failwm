@@ -262,6 +262,7 @@ impl XTestCase {
     }
 
     pub fn command(&self, command: R3Command) {
+        eprintln!("[command] send: {:?}", command);
         let mut c = UnixStream::connect(self.get_socket_path()).unwrap();
         c.write_all(&serde_json::to_vec(&command).unwrap()).unwrap();
         c.shutdown(Shutdown::Write).unwrap();
@@ -269,6 +270,7 @@ impl XTestCase {
         // Read response
         let mut buffer = String::new();
         c.read_to_string(&mut buffer).unwrap();
+        eprintln!("[command] recv: {:?}", buffer);
         // TODO: return response once a format for it exists
     }
 }

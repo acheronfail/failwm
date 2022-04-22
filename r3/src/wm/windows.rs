@@ -125,6 +125,16 @@ impl<'a> WindowManager<'a> {
     pub(super) fn unframe_window(&mut self, target: x::Window) -> xcb::Result<()> {
         let (window, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
 
+        // If it was the frame that was unmapped, then we don't need to do anything.
+        if target == frame {
+            self.framed_clients.remove_by_right(&frame);
+            if self.focused_window == Some(frame) {
+                self.focused_window = None;
+            }
+
+            return Ok(());
+        }
+
         // Unmap frame
         self.conn.send_and_check_request(&x::UnmapWindow { window: frame })?;
 
