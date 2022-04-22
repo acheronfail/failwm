@@ -17,6 +17,8 @@
   - [ ] right now, control+clicks are not sent to the underlying application
 - [ ] bugs
   - [ ] kitty is not re-parented and when it exists crashes with `3` `BadWindow`
+  - [ ] all `panic!` macros
+  - [ ] all `.unwrap()`s
 - [ ] useful frames
   - [ ] titles
   - [ ] active state

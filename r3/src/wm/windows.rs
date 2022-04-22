@@ -4,7 +4,7 @@ use crate::{point::Point, ret_ok_if_none, window_geometry::WindowGeometry};
 
 use super::{masks::MASKS, WindowManager};
 
-impl WindowManager {
+impl<'a> WindowManager<'a> {
     pub(super) fn get_frame_and_window(&self, target: x::Window) -> Option<(x::Window, x::Window)> {
         if let Some(frame) = self.framed_clients.get_by_left(&target) {
             Some((target, *frame))
@@ -162,13 +162,22 @@ impl WindowManager {
             long_length: u32::MAX,
         }))?;
 
-        Ok(property.value::<x::Atom>().contains(&self.atoms.wm_del_window))
+        let protocols = property.value::<x::Atom>();
+        Ok(protocols.contains(&self.atoms.wm_del_window))
     }
 
     pub(super) fn kill_window(&self, target: x::Window) -> xcb::Result<()> {
-        // If the target is a frame, then kill its window; otherwise kill the target.
-        let target = *self.framed_clients.get_by_right(&target).unwrap_or(&target);
-        match self.supports_wm_delete_window(target)? {
+        // If the window supports WM_DELETE_WINDOW, then we tell it to exit - when we receive the
+        // UnmapNotify event for that window we'll clean up the frame. If the target doesn't support
+        // WM_DELETE_WINDOW, then we just destroy the frame itself which will destroy the child window.
+        let (window, frame) = self.get_frame_and_window(target).unwrap_or((target, target));
+
+        // Don't kill the root window! xD
+        if target == self.get_root_window()? {
+            return Ok(());
+        }
+
+        match self.supports_wm_delete_window(window)? {
             // If it does support it, send an event to kill it gracefully
             true => {
                 let data =
@@ -176,18 +185,16 @@ impl WindowManager {
 
                 self.conn.send_request(&x::SendEvent {
                     propagate: false,
-                    destination: x::SendEventDest::Window(target),
+                    destination: x::SendEventDest::Window(window),
                     event_mask: x::EventMask::NO_EVENT,
-                    event: &x::ClientMessageEvent::new(target, self.atoms.wm_protocols, data),
+                    event: &x::ClientMessageEvent::new(window, self.atoms.wm_protocols, data),
                 });
 
                 self.conn.flush()?;
             }
-            // If it doesn't support it, just kill the client
+            // If it doesn't support it, just destroy the window
             false => {
-                self.conn.send_and_check_request(&x::KillClient {
-                    resource: target.resource_id(),
-                })?;
+                self.conn.send_and_check_request(&x::DestroyWindow { window: frame })?;
             }
         }
 

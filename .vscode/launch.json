@@ -4,10 +4,18 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
+    // NOTE: on some systems attaching to non-child processes is restricted
+      // echo 0 | sudo tee -a /proc/sys/kernel/yama/ptrace_scope
     {
       "type": "lldb",
-      // NOTE: on some systems this is restricted
-      // echo 0 | sudo tee -a /proc/sys/kernel/yama/ptrace_scope
+      "request": "attach",
+      "name": "Attach to r3",
+      "args": [],
+      "program": "./target/debug/r3",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
       "request": "attach",
       "name": "Debug r3 (Xephyr)",
       "cargo": {

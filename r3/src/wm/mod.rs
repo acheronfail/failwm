@@ -1,13 +1,21 @@
-mod handlers;
+mod cmd_handlers;
 mod ignored_sequences;
 mod masks;
 mod windows;
+mod x_handlers;
 
-use bimap::BiHashMap;
-use xcb::{x, Connection};
+use std::{
+    os::unix::prelude::OsStrExt,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use self::{ignored_sequences::IgnoredSequences, masks::MASKS};
 use crate::{config::Config, point::Point, window_geometry::WindowGeometry};
+use bimap::BiHashMap;
+use mio::Waker;
+use r3lib::R3Command;
+use xcb::{x, Connection};
 
 crate::atoms_struct! {
     #[derive(Debug)]
@@ -22,6 +30,11 @@ crate::atoms_struct! {
         wm_state_maxv    => b"_NET_WM_STATE_MAXIMIZED_VERT",
         #[allow(dead_code)]
         wm_state_maxh    => b"_NET_WM_STATE_MAXIMIZED_HORZ",
+
+        // Custom atoms
+        r3_pid           => b"R3_PID",
+        r3_socket_path   => b"R3_SOCKET_PATH",
+        r3_sync          => b"R3_SYNC",
     }
 }
 
@@ -32,18 +45,16 @@ enum DragType {
     Resize,
 }
 
-/// The reason why the WindowManager is quitting.
-#[derive(Debug, Clone, Copy)]
-pub enum QuitReason {
-    UserQuit,
-}
+pub struct WindowManager<'a> {
+    /// Our way of communicating back to the main loop
+    ev_waker: Arc<Waker>,
+    ev_queue: Arc<Mutex<Vec<R3Command>>>,
 
-pub struct WindowManager {
     /// WM Configuration
     config: Config,
 
     /// XCB connection
-    conn: Connection,
+    conn: &'a Connection,
     /// The atoms we need
     atoms: Atoms,
     /// X's default screen
@@ -65,19 +76,21 @@ pub struct WindowManager {
 
     /// The currently focused window
     focused_window: Option<x::Window>,
-
-    /// If this is set, on the next turn of the event loop it will exit the loop
-    quit_reason: Option<QuitReason>,
 }
 
-impl WindowManager {
+impl<'a> WindowManager<'a> {
     /// Connect to the X Server and create a `WindowManager`.
     /// It will not attempt to become the X Server's window manager until `.run()` is called.
-    pub fn new(config: Config) -> xcb::Result<WindowManager> {
-        let (conn, default_screen) = xcb::Connection::connect_with_extensions(None, &[xcb::Extension::Xkb], &[])?;
+    pub fn new(
+        (conn, default_screen): (&'a Connection, i32),
+        (ev_waker, ev_queue): (Arc<Waker>, Arc<Mutex<Vec<R3Command>>>),
+    ) -> xcb::Result<WindowManager<'a>> {
         let atoms = Atoms::intern_all_with_exists(&conn, false)?;
         Ok(WindowManager {
-            config,
+            ev_waker,
+            ev_queue,
+
+            config: Config::new(),
 
             conn,
             atoms,
@@ -90,9 +103,50 @@ impl WindowManager {
             drag_start_frame_rect: None,
 
             focused_window: None,
-
-            quit_reason: None,
         })
+    }
+
+    /// Become the window manager and setup root event masks
+    pub fn become_window_manager(&mut self, socket_path: &Path) -> xcb::Result<()> {
+        // Request to become the X window manager
+        self.acquire_wm_event_mask()?;
+
+        // Start managing any existing windows
+        self.reparent_existing_windows()?;
+
+        // Bind key events on root window so they're always reported
+        let root = self.get_root_window()?;
+        self.conn.send_and_check_request(&x::GrabKey {
+            grab_window: root,
+            owner_events: false,
+            key: 0x18, // Q on qwerty TODO: support keymaps
+            pointer_mode: x::GrabMode::Async,
+            keyboard_mode: x::GrabMode::Async,
+            modifiers: x::ModMask::ANY,
+        })?;
+
+        // Start listening to events on the root window
+        self.conn.send_and_check_request(&x::ChangeWindowAttributes {
+            window: root,
+            value_list: &[x::Cw::EventMask(MASKS.root_window_events)],
+        })?;
+
+        // Set an atom on the root window with the path to our IPC socket
+        let set_atom = |atom, data| {
+            self.conn.send_and_check_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: root,
+                property: atom,
+                r#type: x::ATOM_STRING,
+                data,
+            })
+        };
+
+        let pid = std::process::id().to_string();
+        set_atom(self.atoms.r3_pid, pid.as_bytes())?;
+        set_atom(self.atoms.r3_socket_path, socket_path.as_os_str().as_bytes())?;
+
+        Ok(())
     }
 
     /// To be called just after becoming the X Server's window manager.
@@ -119,7 +173,7 @@ impl WindowManager {
 
     /// Try to become the X Server's window manager.
     /// TODO: link to documentation, or explain it here
-    fn become_window_manager(&self) -> xcb::Result<()> {
+    fn acquire_wm_event_mask(&self) -> xcb::Result<()> {
         let c = self.conn.send_request_checked(&x::ChangeWindowAttributes {
             window: self.get_root_window()?,
             value_list: &[x::Cw::EventMask(
@@ -179,104 +233,10 @@ impl WindowManager {
             self.conn.send_and_check_request(&x::SetInputFocus {
                 revert_to: x::InputFocus::PointerRoot,
                 focus,
-                // /usr/include/xcb/xcb.h: #define XCB_CURRENT_TIME 0L
-                time: 0,
+                time: x::CURRENT_TIME,
             })?;
         }
 
         Ok(())
-    }
-
-    /// Become the window manager and start managing windows!
-    pub fn run(&mut self) -> xcb::Result<QuitReason> {
-        //
-        // WM setup
-        //
-
-        self.become_window_manager()?;
-        self.reparent_existing_windows()?;
-
-        //
-        // Root window events
-        //
-
-        let root = self.get_root_window()?;
-
-        // Bind key events on root window so they're always reported
-        self.conn.send_and_check_request(&x::GrabKey {
-            grab_window: root,
-            owner_events: false,
-            key: 0x18, // Q on qwerty TODO: support keymaps
-            pointer_mode: x::GrabMode::Async,
-            keyboard_mode: x::GrabMode::Async,
-            modifiers: x::ModMask::ANY,
-        })?;
-
-        // Start listening to events on the root window
-        self.conn.send_and_check_request(&x::ChangeWindowAttributes {
-            window: root,
-            value_list: &[x::Cw::EventMask(MASKS.root_window_events)],
-        })?;
-
-        //
-        // Event loop
-        //
-
-        loop {
-            if let Some(quit_reason) = self.quit_reason {
-                return Ok(quit_reason);
-            }
-
-            let event = match self.conn.wait_for_event() {
-                Ok(event) => event,
-                Err(xcb::Error::Connection(err)) => {
-                    panic!("unexpected I/O error: {}", err);
-                }
-                Err(xcb::Error::Protocol(err)) => {
-                    panic!("unexpected protocol error: {:#?}", err);
-                }
-            };
-
-            match event {
-                // We received a request to configure a window
-                xcb::Event::X(x::Event::ConfigureRequest(ev)) => self.on_configure_request(ev)?,
-                // We received a request to map (render) a window
-                xcb::Event::X(x::Event::MapRequest(ev)) => self.on_map_request(ev)?,
-                // When a window is unmapped, then we "un-frame" it if we've framed it
-                xcb::Event::X(x::Event::UnmapNotify(ev)) => self.on_unmap_notify(ev)?,
-
-                // Handle key events
-                xcb::Event::X(x::Event::KeyPress(ev)) => self.on_key_press(ev)?,
-                xcb::Event::X(x::Event::KeyRelease(ev)) => self.on_key_release(ev)?,
-
-                // Handle mouse events
-                xcb::Event::X(x::Event::ButtonPress(ev)) => self.on_button_press(ev)?,
-                xcb::Event::X(x::Event::ButtonRelease(ev)) => self.on_button_release(ev)?,
-                xcb::Event::X(x::Event::MotionNotify(ev)) => self.on_motion_notify(ev)?,
-
-                // Handle window events
-                xcb::Event::X(x::Event::EnterNotify(ev)) => self.on_enter_notify(ev)?,
-                xcb::Event::X(x::Event::LeaveNotify(ev)) => self.on_leave_notify(ev)?,
-                xcb::Event::X(x::Event::Expose(ev)) => self.on_expose(ev)?,
-                xcb::Event::X(x::Event::FocusIn(ev)) => self.on_focus_in(ev)?,
-                xcb::Event::X(x::Event::FocusOut(ev)) => self.on_focus_out(ev)?,
-                xcb::Event::X(x::Event::PropertyNotify(ev)) => self.on_property_notify(ev)?,
-
-                // Ignored events
-                xcb::Event::X(x::Event::ReparentNotify(_)) => {}
-                xcb::Event::X(x::Event::CreateNotify(_)) => {}
-                xcb::Event::X(x::Event::DestroyNotify(_)) => {}
-                xcb::Event::X(x::Event::ConfigureNotify(_)) => {}
-                xcb::Event::X(x::Event::MappingNotify(_)) => {}
-                xcb::Event::X(x::Event::MapNotify(_)) => {}
-
-                // TODO: handle all events!
-                _ => {
-                    eprintln!("{:#?}", event);
-                }
-            }
-
-            self.render()?;
-        }
     }
 }

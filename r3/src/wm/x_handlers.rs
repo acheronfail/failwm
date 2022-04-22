@@ -2,21 +2,109 @@ use std::cmp;
 
 use xcb::{
     x::{
-        self, ButtonPressEvent, ConfigureRequestEvent, EnterNotifyEvent, ExposeEvent, FocusInEvent, FocusOutEvent,
-        KeyPressEvent, LeaveNotifyEvent, MapRequestEvent, MotionNotifyEvent, PropertyNotifyEvent, UnmapNotifyEvent,
+        self, ButtonPressEvent, ClientMessageEvent, ConfigureRequestEvent, EnterNotifyEvent, ExposeEvent, FocusInEvent,
+        FocusOutEvent, KeyPressEvent, LeaveNotifyEvent, MapRequestEvent, MotionNotifyEvent, PropertyNotifyEvent,
+        UnmapNotifyEvent,
     },
     BaseEvent,
 };
 
-use super::{DragType, QuitReason, WindowManager};
+use super::{DragType, WindowManager};
 use crate::{point::Point, ret_ok_if_none, window_geometry::Quadrant};
 
-impl WindowManager {
+impl<'a> WindowManager<'a> {
+    pub fn handle_event(&mut self, event: xcb::Result<xcb::Event>) -> xcb::Result<()> {
+        let event = match event {
+            Ok(event) => event,
+            Err(xcb::Error::Connection(err)) => {
+                panic!(
+                    "unexpected I/O error: {} {:?}",
+                    err,
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_micros()
+                );
+            }
+            Err(xcb::Error::Protocol(err)) => {
+                panic!("unexpected protocol error: {:#?}", err);
+            }
+        };
+
+        match event {
+            // We received a request to configure a window
+            xcb::Event::X(x::Event::ConfigureRequest(ev)) => self.on_configure_request(ev)?,
+            // We received a request to map (render) a window
+            xcb::Event::X(x::Event::MapRequest(ev)) => self.on_map_request(ev)?,
+            // When a window is unmapped, then we "un-frame" it if we've framed it
+            xcb::Event::X(x::Event::UnmapNotify(ev)) => self.on_unmap_notify(ev)?,
+
+            // Handle key events
+            xcb::Event::X(x::Event::KeyPress(ev)) => self.on_key_press(ev)?,
+            xcb::Event::X(x::Event::KeyRelease(ev)) => self.on_key_release(ev)?,
+
+            // Handle mouse events
+            xcb::Event::X(x::Event::ButtonPress(ev)) => self.on_button_press(ev)?,
+            xcb::Event::X(x::Event::ButtonRelease(ev)) => self.on_button_release(ev)?,
+            xcb::Event::X(x::Event::MotionNotify(ev)) => self.on_motion_notify(ev)?,
+
+            // Handle window events
+            xcb::Event::X(x::Event::EnterNotify(ev)) => self.on_enter_notify(ev)?,
+            xcb::Event::X(x::Event::LeaveNotify(ev)) => self.on_leave_notify(ev)?,
+            xcb::Event::X(x::Event::Expose(ev)) => self.on_expose(ev)?,
+            xcb::Event::X(x::Event::FocusIn(ev)) => self.on_focus_in(ev)?,
+            xcb::Event::X(x::Event::FocusOut(ev)) => self.on_focus_out(ev)?,
+            xcb::Event::X(x::Event::PropertyNotify(ev)) => self.on_property_notify(ev)?,
+
+            // Handle client events
+            xcb::Event::X(x::Event::ClientMessage(ev)) => self.on_client_message(ev)?,
+
+            // Ignored events
+            xcb::Event::X(x::Event::ReparentNotify(_)) => {}
+            xcb::Event::X(x::Event::CreateNotify(_)) => {}
+            xcb::Event::X(x::Event::DestroyNotify(_)) => {}
+            xcb::Event::X(x::Event::ConfigureNotify(_)) => {}
+            xcb::Event::X(x::Event::MappingNotify(_)) => {}
+            xcb::Event::X(x::Event::MapNotify(_)) => {}
+
+            // TODO: handle all events!
+            _ => {
+                eprintln!("{:#?}", event);
+            }
+        }
+
+        self.render()?;
+
+        Ok(())
+    }
+
     /**
-     * X Events
+     * X Client Events
      */
 
-    pub(super) fn on_configure_request(&self, ev: ConfigureRequestEvent) -> xcb::Result<()> {
+    fn on_client_message(&self, ev: ClientMessageEvent) -> xcb::Result<()> {
+        // Send a sync message back
+        if ev.r#type() == self.atoms.r3_sync {
+            eprintln!("R3_SYNC: {:?} ", ev.data());
+            let window = ev.window();
+            self.conn.send_request(&x::SendEvent {
+                propagate: false,
+                destination: x::SendEventDest::Window(window),
+                event_mask: x::EventMask::NO_EVENT,
+                event: &x::ClientMessageEvent::new(window, self.atoms.r3_sync, ev.data()),
+            });
+            self.conn.flush()?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    /**
+     * X Window Events
+     */
+
+    fn on_configure_request(&self, ev: ConfigureRequestEvent) -> xcb::Result<()> {
         let window = ev.window();
         let value_list = [
             x::ConfigWindow::X(ev.x() as i32),
@@ -46,7 +134,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn on_map_request(&mut self, ev: MapRequestEvent) -> xcb::Result<()> {
+    fn on_map_request(&mut self, ev: MapRequestEvent) -> xcb::Result<()> {
         // We ignore all other events generated by this map request, since they're not useful to us
         self.ignored_sequences.add(ev.sequence());
 
@@ -63,7 +151,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn on_unmap_notify(&mut self, ev: UnmapNotifyEvent) -> xcb::Result<()> {
+    fn on_unmap_notify(&mut self, ev: UnmapNotifyEvent) -> xcb::Result<()> {
         // We ignore all EnterNotify events that have the same sequence as an UnmapNotify event, since
         // they're not useful for us (and are indistinguishable from user EnterNotify events).
         self.ignored_sequences
@@ -85,11 +173,12 @@ impl WindowManager {
      */
 
     // TODO: remove hardcoded values when configuration is available
-    pub(super) fn on_key_press(&mut self, ev: KeyPressEvent) -> xcb::Result<()> {
+    fn on_key_press(&mut self, ev: KeyPressEvent) -> xcb::Result<()> {
         // CTRL + SHIFT + Q - kill window manager
         // TODO: this has to be fired on a window
         if ev.state().contains(x::KeyButMask::CONTROL | x::KeyButMask::SHIFT) && ev.detail() == 0x18 {
-            self.quit_reason = Some(QuitReason::UserQuit);
+            self.ev_queue.lock().unwrap().push(r3lib::R3Command::Exit);
+            self.ev_waker.wake().unwrap();
             return Ok(());
         }
 
@@ -104,7 +193,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn on_key_release(&self, _ev: KeyPressEvent) -> xcb::Result<()> {
+    fn on_key_release(&self, _ev: KeyPressEvent) -> xcb::Result<()> {
         Ok(())
     }
 
@@ -112,7 +201,7 @@ impl WindowManager {
      * Mouse Events
      */
 
-    pub(super) fn on_button_press(&mut self, ev: ButtonPressEvent) -> xcb::Result<()> {
+    fn on_button_press(&mut self, ev: ButtonPressEvent) -> xcb::Result<()> {
         let target = ev.event();
         let (window, frame) = ret_ok_if_none!(self.get_frame_and_window(target));
 
@@ -134,7 +223,7 @@ impl WindowManager {
     }
 
     // TODO: remove hardcoded values when configuration is available
-    pub(super) fn on_motion_notify(&mut self, ev: MotionNotifyEvent) -> xcb::Result<()> {
+    fn on_motion_notify(&mut self, ev: MotionNotifyEvent) -> xcb::Result<()> {
         let target = ev.event();
         let (window, _) = ret_ok_if_none!(self.get_frame_and_window(target));
 
@@ -190,7 +279,7 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn on_button_release(&mut self, _ev: ButtonPressEvent) -> xcb::Result<()> {
+    fn on_button_release(&mut self, _ev: ButtonPressEvent) -> xcb::Result<()> {
         self.drag_start = None;
         self.drag_start_frame_rect = None;
         Ok(())
@@ -200,7 +289,7 @@ impl WindowManager {
      * Window Events
      */
 
-    pub(super) fn on_enter_notify(&mut self, ev: EnterNotifyEvent) -> xcb::Result<()> {
+    fn on_enter_notify(&mut self, ev: EnterNotifyEvent) -> xcb::Result<()> {
         // Some EnterNotify events don't make sense so we skip them
         if self
             .ignored_sequences
@@ -217,23 +306,23 @@ impl WindowManager {
         Ok(())
     }
 
-    pub(super) fn on_leave_notify(&self, _ev: LeaveNotifyEvent) -> xcb::Result<()> {
+    fn on_leave_notify(&self, _ev: LeaveNotifyEvent) -> xcb::Result<()> {
         Ok(())
     }
 
-    pub(super) fn on_expose(&self, _ev: ExposeEvent) -> xcb::Result<()> {
+    fn on_expose(&self, _ev: ExposeEvent) -> xcb::Result<()> {
         Ok(())
     }
 
-    pub(super) fn on_focus_in(&self, _ev: FocusInEvent) -> xcb::Result<()> {
+    fn on_focus_in(&self, _ev: FocusInEvent) -> xcb::Result<()> {
         Ok(())
     }
 
-    pub(super) fn on_focus_out(&self, _ev: FocusOutEvent) -> xcb::Result<()> {
+    fn on_focus_out(&self, _ev: FocusOutEvent) -> xcb::Result<()> {
         Ok(())
     }
 
-    pub(super) fn on_property_notify(&self, _ev: PropertyNotifyEvent) -> xcb::Result<()> {
+    fn on_property_notify(&self, _ev: PropertyNotifyEvent) -> xcb::Result<()> {
         Ok(())
     }
 }

@@ -1,18 +1,2 @@
-[package]
-name = "r3"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bimap = "0.6.2"
-lazy_static = "1.4.0"
-nix = { version = "0.23.1", optional = true }
-xcb = { version = "1.1.1", features = ["composite", "xkb"] }
-
-[target]
-
-[features]
-default = []
-debug = ["dep:nix", "xcb/debug_atom_names"]
+[workspace]
+members = ["r3lib", "r3", "r3-msg"]

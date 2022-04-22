@@ -1,0 +1,30 @@
+[package]
+name = "r3"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html\
+
+[dependencies]
+bimap = "0.6.2"
+lazy_static = "1.4.0"
+mio = { version = "0.8.2", features = ["os-ext"] }
+nix = { version = "0.24.0", optional = true }
+r3lib = { path = "../r3lib" }
+serde_json = "1.0.79"
+signal-hook = "0.3.13"
+signal-hook-mio = { version = "0.2.3", features = ["support-v0_8"] }
+xcb = { version = "1.1.1", features = ["composite", "xkb"] }
+
+[features]
+default = []
+debug = ["dep:nix", "xcb/debug_atom_names"]
+
+[dev-dependencies]
+nix = "0.24.0"
+rand = "0.8.5"
+which = "4.2.5"
+
+[[test]]
+name = "test_integration"
+path = "test_integration/mod.rs"

@@ -1,0 +1,11 @@
+[package]
+name = "r3lib"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "3.1.10"
+clap_derive = "3.1.7"
+serde = { version = "1.0.136", features = ["derive"] }
