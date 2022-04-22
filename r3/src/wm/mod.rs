@@ -35,6 +35,7 @@ crate::atoms_struct! {
         r3_pid           => b"R3_PID",
         r3_socket_path   => b"R3_SOCKET_PATH",
         r3_sync          => b"R3_SYNC",
+        r3_frame         => b"R3_FRAME",
     }
 }
 

@@ -6,8 +6,15 @@ wm_test!(maps_a_window, |t: XTestCase| {
     let w = t.open_window((0, 0, 30, 30));
     w.map();
     t.sync();
+
+    // Check the window is mapped
     assert_eq!(w.rect(), (0, 0, 30, 30));
     assert_eq!(1, t.get_all_windows().len());
+
+    // Check a frame was created
+    let f = w.get_frame();
+    assert_eq!(true, f.is_frame());
+    assert_eq!(10, f.border_width());
 });
 
 wm_test!(kills_window_when_no_support_wm_delete_window, |t: XTestCase| {

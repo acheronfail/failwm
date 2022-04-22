@@ -41,7 +41,7 @@ impl<'a> WindowManager<'a> {
         let root_window = self.get_root_window()?;
         self.conn.send_and_check_request(&x::CreateWindow {
             depth: x::COPY_FROM_PARENT as u8,   // TODO: ???
-            visual: x::COPY_FROM_PARENT as u32, // TODO: ???
+            visual: x::COPY_FROM_PARENT as u32, // TODO: get from screen.root_visual()
             wid: frame,
             parent: root_window,
             x: geo.x(),
@@ -60,6 +60,15 @@ impl<'a> WindowManager<'a> {
                 // NOTE: we ignore enter events during re-parenting
                 x::Cw::EventMask(MASKS.frame_window_events & !x::EventMask::ENTER_WINDOW),
             ],
+        })?;
+
+        // Set an atom on our frame to indicate that it is indeed a frame
+        self.conn.send_and_check_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: frame,
+            property: self.atoms.r3_frame,
+            r#type: x::ATOM_STRING,
+            data: b"1",
         })?;
 
         // Start listening to window events

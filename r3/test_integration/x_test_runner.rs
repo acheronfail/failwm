@@ -1,7 +1,6 @@
 use core::panic;
 use r3lib::R3Command;
 use rand::Rng;
-use std::env;
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::net::Shutdown;
@@ -9,7 +8,8 @@ use std::os::unix::net::UnixStream;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use std::{env, thread};
 use xcb::Xid;
 
 pub struct XTestRunner {
@@ -37,6 +37,7 @@ xcb::atoms_struct! {
 
         pub r3_sync          => b"R3_SYNC",
         pub r3_socket_path   => b"R3_SOCKET_PATH",
+        pub r3_frame         => b"R3_FRAME",
     }
 }
 
@@ -47,7 +48,7 @@ pub struct XTestCase {
     /// Connection to the Xephyr X instance
     pub conn: Arc<xcb::Connection>,
     /// Some X Atoms we need
-    pub atoms: Atoms,
+    pub atoms: Arc<Atoms>,
     /// Handle to the root window
     root: xcb::x::Window,
     /// Handle to a special window we use for syncing with r3
@@ -95,7 +96,7 @@ impl XTestCase {
                             panic!("Failed to connect to X server, attempts: {}", attempt);
                         }
 
-                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        thread::sleep(Duration::from_millis(10));
                         attempt += 1;
                         continue;
                     }
@@ -124,7 +125,7 @@ impl XTestCase {
                 atoms = Atoms::intern_all(&conn).unwrap();
                 atoms.r3_socket_path == xcb::x::ATOM_NONE
             } {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(10));
             }
 
             atoms
@@ -134,7 +135,7 @@ impl XTestCase {
             root: conn.get_setup().roots().nth(n as usize).unwrap().root(),
             sync_window: None,
             conn: Arc::new(conn),
-            atoms,
+            atoms: Arc::new(atoms),
             r3_child,
             x_child,
             start: Instant::now(),
@@ -173,6 +174,7 @@ impl XTestCase {
         XWindow {
             id: wid,
             conn: self.conn.clone(),
+            atoms: self.atoms.clone(),
         }
     }
 
@@ -238,6 +240,7 @@ impl XTestCase {
             .map(|id| XWindow {
                 id: *id,
                 conn: self.conn.clone(),
+                atoms: self.atoms.clone(),
             })
             .collect()
     }
@@ -273,6 +276,7 @@ impl XTestCase {
 pub struct XWindow {
     pub id: xcb::x::Window,
     conn: Arc<xcb::Connection>,
+    atoms: Arc<Atoms>,
 }
 
 impl Debug for XWindow {
@@ -284,7 +288,7 @@ impl Debug for XWindow {
     }
 }
 
-// TODO: add `.is_frame()` <-- probably set an atom on each frame window?
+// TODO: easier helpers to create from XWindow or XTestCase
 impl XWindow {
     pub fn map(&self) {
         self.conn
@@ -296,6 +300,35 @@ impl XWindow {
         self.conn
             .send_and_check_request(&xcb::x::DestroyWindow { window: self.id })
             .unwrap();
+    }
+
+    pub fn is_frame(&self) -> bool {
+        let reply = self
+            .conn
+            .wait_for_reply(self.conn.send_request(&xcb::x::GetProperty {
+                delete: false,
+                window: self.id,
+                property: self.atoms.r3_frame,
+                r#type: xcb::x::ATOM_STRING,
+                long_offset: 0,
+                long_length: u32::MAX,
+            }))
+            .unwrap();
+
+        String::from_utf8(reply.value::<u8>().into()).unwrap() == "1"
+    }
+
+    pub fn get_frame(&self) -> XWindow {
+        let query_tree = self
+            .conn
+            .wait_for_reply(self.conn.send_request(&xcb::x::QueryTree { window: self.id }))
+            .unwrap();
+
+        XWindow {
+            id: query_tree.parent(),
+            conn: self.conn.clone(),
+            atoms: self.atoms.clone(),
+        }
     }
 
     pub fn rect(&self) -> (i16, i16, u16, u16) {
