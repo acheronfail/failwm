@@ -1,12 +1,22 @@
 use clap_derive::Subcommand;
 use serde::{Deserialize, Serialize};
 
-// TODO: should this live in a shared r3lib? so server and client can use it?
-// TODO: consider how commands/config should be formatted (i3-like attributes)
+#[derive(Debug, Serialize, Deserialize, Subcommand)]
+pub enum WMCommand {
+    /// Close the currently focused window
+    CloseWindow,
+    // TODO: get window state, etc
+}
+
 #[derive(Debug, Serialize, Deserialize, Subcommand)]
 pub enum R3Command {
-    /// Exits r3
+    /// Commands specific to Window Management
+    #[clap(subcommand)]
+    WM(WMCommand),
+    /// Returns the currently running version
+    GetVersion,
+    /// Returns the current configuration
+    GetConfig,
+    /// Exit the app
     Exit,
-    /// Closes a window
-    CloseWindow,
 }

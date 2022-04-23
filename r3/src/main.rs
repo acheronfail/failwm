@@ -175,8 +175,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     for cmd in cmds {
                         // TODO: extend R3Command so there are WM-specific commands and app-specific commands
                         match cmd {
+                            R3Command::WM(wm_cmd) => wm.handle_command(&wm_cmd)?,
+                            // TODO: how to send reply? wrap items in command_queue with a context/reply/etc field/closure?
+                            R3Command::GetConfig => todo!(),
+                            R3Command::GetVersion => todo!(),
                             R3Command::Exit => break 'event_loop,
-                            _ => wm.handle_command(&cmd)?,
                         }
                     }
                 }

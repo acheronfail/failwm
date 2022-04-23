@@ -1,16 +1,15 @@
 use super::WindowManager;
-use r3lib::R3Command;
+use r3lib::WMCommand;
 
 impl<'a> WindowManager<'a> {
-    pub fn handle_command(&mut self, cmd: &R3Command) -> xcb::Result<()> {
+    pub fn handle_command(&mut self, cmd: &WMCommand) -> xcb::Result<()> {
         match cmd {
-            R3Command::CloseWindow => {
+            WMCommand::CloseWindow => {
                 if let Some(window) = self.focused_window.take() {
                     println!("focused: {:?}", window);
                     self.kill_window(window)?;
                 }
             }
-            _ => {}
         }
 
         Ok(())

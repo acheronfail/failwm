@@ -1,5 +1,5 @@
 use crate::{wm_test, x_test_runner::XTestCase};
-use r3lib::R3Command;
+use r3lib::{R3Command, WMCommand};
 use xcb::{x, Xid};
 
 wm_test!(maps_a_window, |t: XTestCase| {
@@ -24,7 +24,7 @@ wm_test!(kills_window_when_no_support_wm_delete_window, |t: XTestCase| {
     t.sync();
     assert_eq!(1, t.get_all_windows().len());
 
-    t.command(R3Command::CloseWindow);
+    t.command(R3Command::WM(WMCommand::CloseWindow));
     t.sync();
     assert_eq!(0, t.get_all_windows().len());
 });
@@ -48,7 +48,7 @@ wm_test!(can_gracefully_kill_window, |t: XTestCase| {
     assert_eq!(1, t.get_all_windows().len());
 
     // Send the close window command
-    t.command(R3Command::CloseWindow);
+    t.command(R3Command::WM(WMCommand::CloseWindow));
     loop {
         // Make sure it didn't close unexpectedly (if wm didn't detect WM_DELETE_WINDOW support)
         assert_eq!(1, t.get_all_windows().len(), "Window closed unexpectedly early!");

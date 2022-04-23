@@ -4,9 +4,10 @@ use r3lib::R3Command;
 #[derive(Debug, Parser)]
 pub struct Args {
     /// Path to the r3 socket
-    // TODO: default to getting the R3_SOCKET_PATH atom from the root window if it exists!
-    #[clap(long = "socket", short = 's', default_value = "/tmp/r3.sock")]
-    pub socket: String,
+    /// If not provided, r3-msg will try to read it from the R3_SOCKET_PATH on
+    /// the root window of the running X server
+    #[clap(long = "socket", short = 's')]
+    pub socket: Option<String>,
 
     /// The command to send
     #[clap(subcommand)]

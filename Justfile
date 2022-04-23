@@ -11,16 +11,19 @@ build-debug:
 	cargo build --features=debug
 
 # Run in an X server and STOP for debugger to attach
-debug: build-debug
-	xinit ./.vscode/xinitrc.debug -- "$(which Xephyr)" :101 -ac -screen 800x600 -host-cursor
+debug: build-debug (check "Xephyr")
+	xinit ./.vscode/xinitrc.debug -- "$(which Xephyr)" :81 -ac -screen 800x600 -no-host-grab
 
 # Run in an X server
-run: build-debug
-	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :100 -ac -screen 800x600 -host-cursor
-
+run: build-debug (check "Xephyr")
+	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :80 -ac -screen 800x600 -no-host-grab
 # Run in a fullscreen X server
-run-fs: build-debug
-	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :100 -ac -fullscreen host-cursor
+run-fs: build-debug (check "Xephyr")
+	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :80 -ac -fullscreen -no-host-grab
+
+# Run r3-msg
+msg *ARGS:
+	cargo run -p r3-msg -- {{ARGS}}
 
 # Run the tests: arguments are passed to `cargo test`
 test *ARGS: build-debug (check "Xephyr" "Xvfb")
