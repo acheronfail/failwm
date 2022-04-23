@@ -15,7 +15,7 @@ macro_rules! atoms_struct {
         $(#[$outer:meta])*
         $vis:vis struct $Atoms:ident {
             $(
-                $(#[$fmeta:meta])* $fvis:vis $field:ident => $name:expr,
+                $(#[$fmeta:meta])* $fvis:vis $field:ident => $name:expr $(; only_if_exists = $only_if_exists:expr)?,
             )*
         }
     ) => {
@@ -26,11 +26,10 @@ macro_rules! atoms_struct {
         impl $Atoms {
             #[allow(dead_code)]
             pub fn intern_all(conn: &xcb::Connection) -> xcb::Result<$Atoms> {
-                $Atoms::intern_all_with_exists(conn, true)
-            }
-
-            pub fn intern_all_with_exists(conn: &xcb::Connection, only_if_exists: bool) -> xcb::Result<$Atoms> {
                 $(
+                    #[allow(unused_assignments)]
+                    let mut only_if_exists = true;
+                    $( only_if_exists = $only_if_exists; )?
                     let $field = conn.send_request(&xcb::x::InternAtom {
                         only_if_exists,
                         name: $name,
