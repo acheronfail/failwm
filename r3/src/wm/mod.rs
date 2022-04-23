@@ -17,31 +17,32 @@ use mio::Waker;
 use r3lib::R3Command;
 use xcb::{x, Connection};
 
+// TODO: see https://github.com/rust-x-bindings/rust-xcb/pull/182
 crate::atoms_struct! {
     #[derive(Debug)]
     struct Atoms {
-        wm_protocols     => b"WM_PROTOCOLS"                 ; only_if_exists = false,
-        wm_del_window    => b"WM_DELETE_WINDOW"             ; only_if_exists = false,
+        wm_protocols     => b"WM_PROTOCOLS"                 only_if_exists = false,
+        wm_del_window    => b"WM_DELETE_WINDOW"             only_if_exists = false,
         #[allow(dead_code)]
-        wm_active_window => b"_NET_ACTIVE_WINDOW"           ; only_if_exists = false,
+        wm_active_window => b"_NET_ACTIVE_WINDOW"           only_if_exists = false,
         #[allow(dead_code)]
-        wm_state         => b"_NET_WM_STATE"                ; only_if_exists = false,
+        wm_state         => b"_NET_WM_STATE"                only_if_exists = false,
         #[allow(dead_code)]
-        wm_state_maxv    => b"_NET_WM_STATE_MAXIMIZED_VERT" ; only_if_exists = false,
+        wm_state_maxv    => b"_NET_WM_STATE_MAXIMIZED_VERT" only_if_exists = false,
         #[allow(dead_code)]
-        wm_state_maxh    => b"_NET_WM_STATE_MAXIMIZED_HORZ" ; only_if_exists = false,
+        wm_state_maxh    => b"_NET_WM_STATE_MAXIMIZED_HORZ" only_if_exists = false,
 
         // Custom atoms
 
         /// Set on the root window, and contains a string of r3's pid
-        r3_pid           => b"R3_PID"                       ; only_if_exists = false,
+        r3_pid           => b"R3_PID"                       only_if_exists = false,
         /// Set on the root window, and contains the path to the r3 socket
-        r3_socket_path   => b"R3_SOCKET_PATH"               ; only_if_exists = false,
+        r3_socket_path   => b"R3_SOCKET_PATH"               only_if_exists = false,
         /// Mainly used for testing purposes: r3 will respond to ClientMessage events on
         /// the root window, and will send back what it received to the sender
-        r3_sync          => b"R3_SYNC"                      ; only_if_exists = false,
+        r3_sync          => b"R3_SYNC"                      only_if_exists = false,
         /// Set on every r3 frame window (to distinguish it as a frame)
-        r3_frame         => b"R3_FRAME"                     ; only_if_exists = false,
+        r3_frame         => b"R3_FRAME"                     only_if_exists = false,
     }
 }
 

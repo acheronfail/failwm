@@ -15,7 +15,7 @@ macro_rules! atoms_struct {
         $(#[$outer:meta])*
         $vis:vis struct $Atoms:ident {
             $(
-                $(#[$fmeta:meta])* $fvis:vis $field:ident => $name:expr $(; only_if_exists = $only_if_exists:expr)?,
+                $(#[$fmeta:meta])* $fvis:vis $field:ident => $name:tt $( only_if_exists = $only_if_exists:expr)?,
             )*
         }
     ) => {
