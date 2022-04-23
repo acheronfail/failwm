@@ -17,6 +17,8 @@ debug: build-debug
 # Run in an X server
 run: build-debug
 	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :100 -ac -screen 800x600 -host-cursor
+
+# Run in a fullscreen X server
 run-fs: build-debug
 	xinit ./.vscode/xinitrc.run -- "$(which Xephyr)" :100 -ac -fullscreen host-cursor
 

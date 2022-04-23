@@ -2,10 +2,6 @@
 
 - [ ] structured logging
 - [x] fix quit shortcut: only fires on a window, probably need to grab on root window
-- [-] implement "focus"
-  - [x] different border color
-  - [x] key events fire on focused window
-  - [x] ability to turn off "focus_follows_mouse"
 - [ ] change cursor on background
 - [ ] fix resizing
   - [x] seems to be limited to events within a single window only?
@@ -16,17 +12,25 @@
 - [ ] button events on window when dragging, etc
   - [ ] right now, control+clicks are not sent to the underlying application
 - [ ] bugs
-  - [ ] kitty is not re-parented and when it exists crashes with `3` `BadWindow`
+  - [x] kitty is not re-parented and when it exists crashes with `3` `BadWindow`
+  - [ ] kitty is very slow to resize
   - [ ] all `panic!` macros
-  - [ ] all `.unwrap()`s
-- [ ] useful frames
-  - [ ] titles
-  - [ ] active state
-  - [ ] mouse events
-    - [ ] dragging
-    - [ ] scrolling
-    - [ ] clicking
+  - [ ] all `.unwrap()`
 - [ ] status bar support
+- [ ] windowing
+  - [ ] WM_NAME on all frames
+  - [ ] can't `xprop` click into window when it's in a frame - pass through events?
+  - [ ] frames
+    - [ ] titles
+    - [x] active state
+    - [ ] mouse events
+      - [ ] dragging
+      - [ ] scrolling
+      - [ ] clicking
+- [-] implement "focus"
+  - [x] different border color
+  - [x] key events fire on focused window
+  - [x] ability to turn off "focus_follows_mouse"
 - [ ] tiling
   - [ ] tabbed layouts
   - [ ] workspaces
