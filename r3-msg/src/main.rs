@@ -9,7 +9,7 @@ use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use xcb::x;
 use xcb::x::GetProperty;
-use xcb::x::ATOM_STRING;
+use xcb::x::ATOM_ANY;
 use xcb::Connection;
 use xcb::ProtocolError;
 
@@ -64,14 +64,13 @@ fn get_socket_path() -> Result<String, Box<dyn Error>> {
         delete: false,
         window: root_window,
         property: atoms.r3_socket_path,
-        r#type: ATOM_STRING,
+        r#type: ATOM_ANY,
         long_offset: 0,
         long_length: u32::MAX,
     });
 
     let reply = match conn.wait_for_reply(cookie) {
-        Err(xcb::Error::Protocol(ProtocolError::X(x::Error::Atom(e), _))) if e.error_code() == x11::xlib::BadAtom => {
-            println!("{:?}", atoms.r3_socket_path);
+        Err(xcb::Error::Protocol(ProtocolError::X(x::Error::Atom(_), _))) => {
             return Err("Failed to find R3_SOCKET_PATH atom on the root window. Is r3 running?")?;
         }
         Err(e) => panic!("{}", e),
