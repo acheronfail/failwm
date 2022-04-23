@@ -53,5 +53,5 @@
   - [ ] licenses
 - [ ] plugins/ipc
   - [ ] JSON? some other format?
-  - [ ] shared socket? child process with io?
+  - [x] shared socket? ~~child process with io?~~
 - [ ] investigate how much work it would be to support both X and wayland
