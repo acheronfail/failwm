@@ -1,6 +1,4 @@
 use core::panic;
-use r3lib::R3Command;
-use rand::Rng;
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::net::Shutdown;
@@ -10,6 +8,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, thread};
+
+use r3lib::R3Command;
+use rand::Rng;
 use xcb::Xid;
 
 pub struct XTestRunner {

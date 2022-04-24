@@ -1,4 +1,5 @@
-use std::{collections::BinaryHeap, time::Instant};
+use std::collections::BinaryHeap;
+use std::time::Instant;
 
 #[derive(Debug, PartialEq, Eq)]
 struct Inner {

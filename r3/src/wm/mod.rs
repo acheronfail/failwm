@@ -4,18 +4,20 @@ mod masks;
 mod windows;
 mod x_handlers;
 
-use std::{
-    os::unix::prelude::OsStrExt,
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::os::unix::prelude::OsStrExt;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
-use self::{ignored_sequences::IgnoredSequences, masks::MASKS};
-use crate::{config::Config, point::Point, window_geometry::WindowGeometry};
 use bimap::BiHashMap;
 use mio::Waker;
 use r3lib::R3Command;
 use xcb::{x, Connection};
+
+use self::ignored_sequences::IgnoredSequences;
+use self::masks::MASKS;
+use crate::config::Config;
+use crate::point::Point;
+use crate::window_geometry::WindowGeometry;
 
 // TODO: see https://github.com/rust-x-bindings/rust-xcb/pull/182
 crate::atoms_struct! {

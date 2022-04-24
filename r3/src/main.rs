@@ -4,23 +4,21 @@ mod point;
 mod window_geometry;
 mod wm;
 
-use mio::unix::SourceFd;
-use mio::{Events, Interest, Poll, Token, Waker};
-use r3lib::R3Command;
-use signal_hook::consts::SIGTERM;
-use signal_hook_mio::v0_8::Signals;
-use std::env;
 use std::error::Error;
-use std::fs;
 use std::io::{self, Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixListener;
 use std::os::unix::prelude::AsRawFd;
 use std::path::PathBuf;
-use std::process;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
+use std::{env, fs, process, thread};
+
+use mio::unix::SourceFd;
+use mio::{Events, Interest, Poll, Token, Waker};
+use r3lib::R3Command;
+use signal_hook::consts::SIGTERM;
+use signal_hook_mio::v0_8::Signals;
 use wm::WindowManager;
 use xcb::Connection;
 

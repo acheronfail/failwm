@@ -1,17 +1,15 @@
 mod args;
 
-use crate::args::Args;
-use clap::Parser;
 use std::error::Error;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
-use xcb::x;
-use xcb::x::GetProperty;
-use xcb::x::ATOM_ANY;
-use xcb::Connection;
-use xcb::ProtocolError;
+
+use clap::Parser;
+use xcb::x::{GetProperty, ATOM_ANY};
+use xcb::{x, Connection, ProtocolError};
+
+use crate::args::Args;
 
 xcb::atoms_struct! {
     #[derive(Debug)]

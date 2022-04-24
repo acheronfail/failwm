@@ -1,16 +1,16 @@
 use std::cmp;
 
-use xcb::{
-    x::{
-        self, ButtonPressEvent, ClientMessageEvent, ConfigureRequestEvent, EnterNotifyEvent, ExposeEvent, FocusInEvent,
-        FocusOutEvent, KeyPressEvent, LeaveNotifyEvent, MapRequestEvent, MotionNotifyEvent, PropertyNotifyEvent,
-        UnmapNotifyEvent,
-    },
-    BaseEvent,
+use xcb::x::{
+    self, ButtonPressEvent, ClientMessageEvent, ConfigureRequestEvent, EnterNotifyEvent, ExposeEvent, FocusInEvent,
+    FocusOutEvent, KeyPressEvent, LeaveNotifyEvent, MapRequestEvent, MotionNotifyEvent, PropertyNotifyEvent,
+    UnmapNotifyEvent,
 };
+use xcb::BaseEvent;
 
 use super::{DragType, WindowManager};
-use crate::{point::Point, ret_ok_if_none, window_geometry::Quadrant};
+use crate::point::Point;
+use crate::ret_ok_if_none;
+use crate::window_geometry::Quadrant;
 
 impl<'a> WindowManager<'a> {
     pub fn handle_event(&mut self, event: xcb::Result<xcb::Event>) -> xcb::Result<()> {

@@ -1,6 +1,8 @@
-use crate::{wm_test, x_test_runner::XTestCase};
 use r3lib::{R3Command, WMCommand};
 use xcb::{x, Xid};
+
+use crate::wm_test;
+use crate::x_test_runner::XTestCase;
 
 wm_test!(maps_a_window, |t: XTestCase| {
     let w = t.open_window((0, 0, 30, 30));

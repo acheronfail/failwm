@@ -2,6 +2,10 @@
 @check +CMDS:
     echo {{CMDS}} | xargs -n1 sh -c 'if ! command -v $1 &> /dev/null; then echo "$1 is required!"; exit 1; fi' bash
 
+# Runs `cargo fmt` with nightly
+fmt:
+	rustup run nightly cargo fmt
+
 # Build for release
 build-release:
 	cargo build --features=default --release

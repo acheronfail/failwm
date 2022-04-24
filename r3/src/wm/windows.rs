@@ -1,8 +1,10 @@
 use xcb::{x, Xid};
 
-use crate::{point::Point, ret_ok_if_none, window_geometry::WindowGeometry};
-
-use super::{masks::MASKS, WindowManager};
+use super::masks::MASKS;
+use super::WindowManager;
+use crate::point::Point;
+use crate::ret_ok_if_none;
+use crate::window_geometry::WindowGeometry;
 
 impl<'a> WindowManager<'a> {
     pub(super) fn get_frame_and_window(&self, target: x::Window) -> Option<(x::Window, x::Window)> {
