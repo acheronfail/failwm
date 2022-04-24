@@ -14,6 +14,10 @@
 - [ ] bugs
   - [x] kitty is not re-parented and when it exists crashes with `3` `BadWindow`
   - [ ] kitty is very slow to resize
+  - [ ] can't `xprop` click into window when it's in a frame - pass through events?
+        `xprop` seems to look for `WM_STATE`: https://gitlab.freedesktop.org/xorg/app/xprop/-/blob/master/clientwin.c
+        but for some reason it doesn't seem to work (works fine for i3 though)
+  - [ ] need to adhere to wm spec: https://specifications.freedesktop.org/wm-spec/1.3/ar01s03.html
   - [ ] all `panic!` macros
   - [ ] all `.unwrap()`
 - [ ] status bar support
