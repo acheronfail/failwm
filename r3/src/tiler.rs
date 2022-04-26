@@ -10,23 +10,25 @@ use std::fmt::{Debug, Display};
 //  (tree)nest: TODO (probably combination of add + detach)
 //  (node)nest: TODO (probably combination of add + detach)
 
-pub struct Tree<T> {
-    root: Box<Node<T>>,
+pub struct Tree<B, L> {
+    root: Node<B, L>,
 }
 
-impl<T: Display> Tree<T> {
+impl<B: Default, L> Tree<B, L> {
     pub fn new() -> Self {
         Self {
-            root: Box::new(Node::leaves()),
+            root: Node::leaves(B::default()),
         }
     }
+}
 
-    pub fn write_tree(f: &mut dyn std::fmt::Write, tree: &Tree<T>) -> std::fmt::Result {
+impl<B: Display, L: Display> Tree<B, L> {
+    pub fn write_tree(f: &mut dyn std::fmt::Write, tree: &Tree<B, L>) -> std::fmt::Result {
         writeln!(f, "Root")?;
-        Self::write_tree_inner(f, tree.root.as_ref(), vec![1])
+        Self::write_tree_inner(f, &tree.root, vec![1])
     }
 
-    fn write_tree_inner(f: &mut dyn std::fmt::Write, node: &Node<T>, depths: Vec<usize>) -> std::fmt::Result {
+    fn write_tree_inner(f: &mut dyn std::fmt::Write, node: &Node<B, L>, depths: Vec<usize>) -> std::fmt::Result {
         const EMPTY: &str = "   ";
         const EDGE: &str = " └─";
         const PIPE: &str = " │ ";
@@ -51,9 +53,9 @@ impl<T: Display> Tree<T> {
 
         write!(f, "{}", this_prefix)?;
         match node {
-            Node::Branch { children } => {
+            Node::Branch { children, inner } => {
                 let mut depth = children.len();
-                writeln!(f, "{}", "Branch")?;
+                writeln!(f, "Branch({})", inner)?;
                 for n in children {
                     let mut next_depths = depths.clone();
                     next_depths.push(depth);
@@ -61,8 +63,8 @@ impl<T: Display> Tree<T> {
                     Self::write_tree_inner(f, n, next_depths)?;
                 }
             }
-            Node::Leaves { children } => {
-                writeln!(f, "{}", "Leaves")?;
+            Node::Leaves { children, inner } => {
+                writeln!(f, "Leaves({})", inner)?;
                 for (i, leaf) in children.iter().enumerate() {
                     let last = i == children.len() - 1;
                     writeln!(f, "{}{}{}", sibling_prefix, if last { EDGE } else { BRANCH }, leaf)?;
@@ -74,7 +76,7 @@ impl<T: Display> Tree<T> {
     }
 }
 
-impl<T: Display> ToString for Tree<T> {
+impl<B: Display, L: Display> ToString for Tree<B, L> {
     fn to_string(&self) -> String {
         let mut s = String::new();
         Tree::write_tree(&mut s, self).expect("Failed to convert Tree to String!");
@@ -83,18 +85,24 @@ impl<T: Display> ToString for Tree<T> {
 }
 
 #[derive(Debug)]
-pub enum Node<T> {
-    Branch { children: Vec<Box<Node<T>>> },
-    Leaves { children: Vec<Leaf<T>> },
+pub enum Node<B, L> {
+    Branch { inner: B, children: Vec<Node<B, L>> },
+    Leaves { inner: B, children: Vec<Leaf<L>> },
 }
 
-impl<T> Node<T> {
-    pub fn leaves() -> Self {
-        Self::Leaves { children: vec![] }
+impl<B, L> Node<B, L> {
+    pub fn leaves(inner: B) -> Self {
+        Self::Leaves {
+            inner,
+            children: vec![],
+        }
     }
 
-    pub fn branch() -> Self {
-        Self::Branch { children: vec![] }
+    pub fn branch(inner: B) -> Self {
+        Self::Branch {
+            inner,
+            children: vec![],
+        }
     }
 }
 
@@ -123,15 +131,16 @@ mod tests {
     fn it_works() {
         // TODO: easier ways to build these
         let tree = Tree {
-            root: Box::new(Node::Leaves {
+            root: Node::Leaves {
+                inner: 'a',
                 children: vec![Leaf(0), Leaf(1), Leaf(2)],
-            }),
+            },
         };
         assert_eq!(
             tree.to_string(),
             indoc! {"
                 Root
-                 └─Leaves
+                 └─Leaves(a)
                     ├─Leaf(0)
                     ├─Leaf(1)
                     └─Leaf(2)
@@ -139,31 +148,35 @@ mod tests {
         );
 
         let tree = Tree {
-            root: Box::new(Node::Branch {
+            root: Node::Branch {
+                inner: 'a',
                 children: vec![
-                    Box::new(Node::Leaves {
+                    Node::Leaves {
+                        inner: 'b',
                         children: vec![Leaf(0), Leaf(1)],
-                    }),
-                    Box::new(Node::Leaves {
+                    },
+                    Node::Leaves {
+                        inner: 'c',
                         children: vec![Leaf(2)],
-                    }),
-                    Box::new(Node::Leaves {
+                    },
+                    Node::Leaves {
+                        inner: 'd',
                         children: vec![Leaf(3), Leaf(4), Leaf(5)],
-                    }),
+                    },
                 ],
-            }),
+            },
         };
         assert_eq!(
             tree.to_string(),
             indoc! {"
                 Root
-                 └─Branch
-                    ├─Leaves
+                 └─Branch(a)
+                    ├─Leaves(b)
                     │  ├─Leaf(0)
                     │  └─Leaf(1)
-                    ├─Leaves
+                    ├─Leaves(c)
                     │  └─Leaf(2)
-                    └─Leaves
+                    └─Leaves(d)
                        ├─Leaf(3)
                        ├─Leaf(4)
                        └─Leaf(5)
@@ -171,39 +184,45 @@ mod tests {
         );
 
         let tree = Tree {
-            root: Box::new(Node::Branch {
+            root: Node::Branch {
+                inner: 'a',
                 children: vec![
-                    Box::new(Node::Branch {
-                        children: vec![Box::new(Node::Leaves {
+                    Node::Branch {
+                        inner: 'b',
+                        children: vec![Node::Leaves {
+                            inner: 'c',
                             children: vec![Leaf(0), Leaf(1), Leaf(2)],
-                        })],
-                    }),
-                    Box::new(Node::Leaves {
+                        }],
+                    },
+                    Node::Leaves {
+                        inner: 'd',
                         children: vec![Leaf(3), Leaf(4)],
-                    }),
-                    Box::new(Node::Branch {
-                        children: vec![Box::new(Node::Leaves {
+                    },
+                    Node::Branch {
+                        inner: 'e',
+                        children: vec![Node::Leaves {
+                            inner: 'f',
                             children: vec![Leaf(5), Leaf(6)],
-                        })],
-                    }),
+                        }],
+                    },
                 ],
-            }),
+            },
         };
         assert_eq!(
             tree.to_string(),
             indoc! {"
                 Root
-                 └─Branch
-                    ├─Branch
-                    │  └─Leaves
+                 └─Branch(a)
+                    ├─Branch(b)
+                    │  └─Leaves(c)
                     │     ├─Leaf(0)
                     │     ├─Leaf(1)
                     │     └─Leaf(2)
-                    ├─Leaves
+                    ├─Leaves(d)
                     │  ├─Leaf(3)
                     │  └─Leaf(4)
-                    └─Branch
-                       └─Leaves
+                    └─Branch(e)
+                       └─Leaves(f)
                           ├─Leaf(5)
                           └─Leaf(6)
             "}
