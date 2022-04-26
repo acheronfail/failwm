@@ -1,6 +1,7 @@
 mod config;
 mod macros;
 mod point;
+mod tiler;
 mod window_geometry;
 mod wm;
 
