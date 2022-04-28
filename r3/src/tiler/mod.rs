@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::fmt::{Debug, Display};
+mod node;
+
+use std::fmt::Display;
+
+use self::node::Node;
 
 // TODO: operations - ie: add, detach, etc
 //  (tree)detach: use global AtomicUsize as an internal id, search for parent who owns that child, perform detach there
@@ -84,47 +88,11 @@ impl<B: Display, L: Display> ToString for Tree<B, L> {
     }
 }
 
-#[derive(Debug)]
-pub enum Node<B, L> {
-    Branch { inner: B, children: Vec<Node<B, L>> },
-    Leaves { inner: B, children: Vec<Leaf<L>> },
-}
-
-impl<B, L> Node<B, L> {
-    pub fn leaves(inner: B) -> Self {
-        Self::Leaves {
-            inner,
-            children: vec![],
-        }
-    }
-
-    pub fn branch(inner: B) -> Self {
-        Self::Branch {
-            inner,
-            children: vec![],
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Leaf<T>(T);
-
-impl<T> Leaf<T> {
-    pub fn new(inner: T) -> Self {
-        Self(inner)
-    }
-}
-
-impl<T: Display> Display for Leaf<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Leaf({})", self.0)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
 
+    use self::node::*;
     use super::*;
 
     #[test]
